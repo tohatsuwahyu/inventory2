@@ -4,24 +4,27 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在庫管理（QR）</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="print.css" media="print" />
- <link rel="icon" type="image/png" href="assets/tsh.png">
-  <!-- ライブラリ：QR 生成 / 読み取り / エクスポート -->
+  <link rel="icon" type="image/png" href="../assets/tsh.png">
+
+  <!-- ライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <script src="https://unpkg.com/html5-qrcode" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  
+
   <script>
-    // ▶▶ 設定はここで直接指定（メニューには出しません）
+    /* ▶ 設定（メニューに出さない）：必ずあなたのURLに置き換え */
     window.CONFIG = {
-      BASE_URL: 'https://script.google.com/macros/s/AKfycbwQdJUFnQNglb4PNRFulDaXnmdatFqPI2hw0oSxJgUKrNV0i7BuGzh-mgN2ViuyzdsCPg/exec',
-      API_KEY: 'supersecret123' // 半角英数推奨
+      BASE_URL: 'PUT_YOUR_APPS_SCRIPT_EXEC_URL_HERE',   // 例: https://script.google.com/macros/s/AKfycb.../exec
+      API_KEY : 'supersecret123'                         // 半角英数
     };
   </script>
 </head>
@@ -29,28 +32,33 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="sb-brand">
-        <img src="assets/tsh.png" alt="logo"/>
+        <img src="../assets/tsh.png" alt="logo" />
         <span>在庫管理</span>
       </div>
+
       <nav class="sb-nav">
         <button class="sb-link active" data-view="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></button>
         <button class="sb-link" data-view="inout"><span class="icon">🔄</span><span>入出庫</span></button>
         <button class="sb-link" data-view="stocktake"><span class="icon">🧾</span><span>棚卸</span></button>
+
         <div class="sb-label admin-only">マスター</div>
         <button class="sb-link admin-only" data-view="items"><span class="icon">📦</span><span>商品</span><span class="badge" id="badge-low">0</span></button>
         <button class="sb-link admin-only" data-view="users"><span class="icon">👤</span><span>ユーザー</span></button>
+
         <div class="sb-label">データ</div>
         <button class="sb-link" data-view="stock"><span class="icon">📊</span><span>在庫</span></button>
         <button class="sb-link" data-view="parts"><span class="icon">🧩</span><span>部品一覧</span></button>
         <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
       </nav>
+
       <div class="sb-foot">JP • v1.0</div>
     </aside>
 
     <section class="content">
       <header class="topbar">
-        <input class="search" placeholder="検索... (Ctrl+/)" />
+        <input class="search" placeholder="検索… (Ctrl+/)" />
         <div class="top-actions">
+          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
           <button id="btn-open-in-top" class="primary">入庫</button>
           <button id="btn-open-out-top" class="accent">出庫</button>
         </div>
@@ -83,50 +91,67 @@
               <h2>QR スキャナ（ユーザー）</h2>
               <div id="user-scanner" class="scanner"></div>
               <div class="info">
-                <label>ユーザー：</label>
-                <input id="user-id" placeholder="ユーザーID (QR)" />
-                <div id="user-name" class="muted"></div>
+                <label>ユーザー</label>
+                <input id="user-id" placeholder="ユーザーID (QR)" disabled />
+                <div id="user-name" class="muted">スキャン待ち…</div>
               </div>
             </div>
+
             <div class="pane">
               <h2>QR スキャナ（商品）</h2>
               <div id="item-scanner" class="scanner"></div>
               <div class="info">
-                <label>商品コード：</label>
-                <input id="item-code" placeholder="商品コード (QR)" />
+                <label>商品コード</label>
+                <input id="item-code" placeholder="商品コード (QR)" disabled />
                 <div id="item-detail" class="muted"></div>
               </div>
             </div>
           </div>
+
           <div class="grid-3">
             <div>
               <label>数量</label>
-              <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
+              <input id="qty" type="number" step="0.01" placeholder="pcs または g" disabled />
             </div>
             <div>
               <label>単位</label>
-              <select id="unit">
+              <select id="unit" disabled>
                 <option value="pcs">pcs</option>
                 <option value="g">g</option>
               </select>
             </div>
             <div>
               <label>種別</label>
-              <select id="type">
+              <select id="type" disabled>
                 <option value="IN">入庫</option>
                 <option value="OUT">出庫</option>
               </select>
             </div>
           </div>
-          <button id="btn-commit" class="primary">記録する</button>
+
+          <button id="btn-commit" class="primary" disabled>記録する</button>
           <div id="commit-status" class="muted"></div>
+        </section>
+
+        <!-- 棚卸 -->
+        <section id="view-stocktake" class="view">
+          <div class="toolbar">
+            <button id="btn-start-stocktake" class="primary admin-only">棚卸を開始</button>
+            <button id="btn-finish-stocktake" class="accent admin-only">棚卸を反映</button>
+          </div>
+          <table id="stocktake-table">
+            <thead>
+              <tr><th>商品名</th><th>コード</th><th>実在庫</th><th>差分</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </section>
 
         <!-- 商品 -->
         <section id="view-items" class="view">
           <div class="toolbar">
-            <button id="btn-add-item" class="primary">新規商品</button>
-            <input id="item-search" placeholder="検索..."/>
+            <button id="btn-add-item" class="primary admin-only">新規商品</button>
+            <input id="item-search" placeholder="検索..." />
             <button id="btn-export-items">CSV エクスポート</button>
             <label class="file">CSV インポート<input id="import-items" type="file" accept=".csv,.xlsx" /></label>
           </div>
@@ -149,21 +174,45 @@
         <!-- ユーザー -->
         <section id="view-users" class="view">
           <div class="toolbar">
-            <button id="btn-add-user" class="primary">新規ユーザー</button>
+            <button id="btn-add-user" class="primary admin-only">新規ユーザー</button>
           </div>
           <table id="users-table">
             <thead>
               <tr>
-                <th>名前</th><th>ID</th><th>QR</th>
+                <th>名前</th><th>ID</th><th>役割</th><th>QR</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
+
           <div id="user-qr-print" class="print-a4">
             <h2>ユーザー QR 一覧</h2>
             <div id="user-qr-grid" class="qr-grid"></div>
             <button id="btn-print-user-qr">印刷</button>
           </div>
+        </section>
+
+        <!-- 在庫（閲覧＋出力） -->
+        <section id="view-stock" class="view">
+          <div class="toolbar">
+            <button id="btn-export-items-2">CSV エクスポート</button>
+            <label class="file">CSV インポート<input id="import-items-2" type="file" accept=".csv,.xlsx" /></label>
+          </div>
+          <table id="stock-table">
+            <thead>
+              <tr><th>商品名</th><th>コード</th><th>在庫</th><th>下限</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- 部品一覧（QR 印刷） -->
+        <section id="view-parts" class="view">
+          <div class="toolbar">
+            <button id="btn-build-parts-qr" class="primary">QR を生成</button>
+            <button id="btn-print-parts-qr" class="accent">印刷</button>
+          </div>
+          <div id="parts-qr-grid" class="qr-grid"></div>
         </section>
 
         <!-- 履歴 -->
@@ -184,36 +233,11 @@
             <tbody></tbody>
           </table>
         </section>
-
-        <!-- 在庫（閲覧＋出力） -->
-        <section id="view-stock" class="view">
-          <div class="toolbar">
-            <button id="btn-export-items-2">CSV エクスポート</button>
-            <label class="file">CSV インポート<input id="import-items-2" type="file" accept=".csv,.xlsx" /></label>
-          </div>
-          <table id="stock-table">
-            <thead>
-              <tr>
-                <th>商品名</th><th>コード</th><th>在庫</th><th>下限</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </section>
-
-        <!-- 部品一覧（QR 印刷専用） -->
-        <section id="view-parts" class="view">
-          <div class="toolbar">
-            <button id="btn-build-parts-qr" class="primary">QR を生成</button>
-            <button id="btn-print-parts-qr" class="accent">印刷</button>
-          </div>
-          <div id="parts-qr-grid" class="qr-grid"></div>
-        </section>
       </main>
     </section>
   </div>
 
-  <!-- ダイアログ（商品/ユーザー追加） -->
+  <!-- Dialogs -->
   <dialog id="dlg-item">
     <form method="dialog">
       <h3>新規商品</h3>
