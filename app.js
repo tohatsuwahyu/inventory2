@@ -73,6 +73,72 @@ function renderDashboard(){
   const badge = qs('#badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
   qs('#today-summary') && (qs('#today-summary').textContent='最新の履歴は「履歴」タブで確認してください。');
 }
+async function refreshTodayStats(){
+  // ambil history hari ini saja
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const from = `${yyyy}-${mm}-${dd}`;
+  const to   = `${yyyy}-${mm}-${dd}`;
+
+  const rows = await api('history', { method:'POST', body:{ from, to } });
+  const inCount  = rows.filter(r=>r.type==='IN').length;
+  const outCount = rows.filter(r=>r.type==='OUT').length;
+
+  const card = qs('#view-dashboard .cards .card:nth-child(2)');
+  if(card){
+    card.innerHTML = `
+      <h3>本日の入出庫</h3>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <div class="pane"><div>入庫</div><div style="font-size:24px;font-weight:700;">${inCount}</div></div>
+        <div class="pane"><div>出庫</div><div style="font-size:24px;font-weight:700;">${outCount}</div></div>
+      </div>
+    `;
+  }
+
+  const recentCard = qs('#view-dashboard .cards .card:nth-child(3)');
+  if(recentCard){
+    const totalItems = state.items.length;
+    const totalStock = state.items.reduce((a,b)=>a + Number(b.stock||0), 0);
+    const low = state.items.filter(it=>Number(it.min||0)>0 && Number(it.stock||0)<=Number(it.min)).length;
+
+    recentCard.innerHTML = `
+      <h3>クイック操作</h3>
+      <button id="btn-open-in" class="primary">入庫</button>
+      <button id="btn-open-out" class="accent">出庫</button>
+      <div class="muted" style="margin-top:12px;">
+        <div>品目数：<b>${totalItems}</b></div>
+        <div>総在庫：<b>${totalStock}</b></div>
+        <div>在庫下限未満：<b style="color:var(--accent)">${low}</b> 件</div>
+      </div>
+      <h4 style="margin-top:12px;">最近の履歴</h4>
+      <ul id="recent5" class="muted"></ul>
+    `;
+    // bind tombol lagi
+    qs('#btn-open-in').onclick  = ()=>{ switchView('inout'); qs('#type').value='IN'; };
+    qs('#btn-open-out').onclick = ()=>{ switchView('inout'); qs('#type').value='OUT'; };
+  }
+
+  // 5 transaksi terakhir (tidak hanya hari ini)
+  const last = await api('history', { method:'POST', body:{} });
+  const recent5 = last.slice(-5).reverse();
+  const ul5 = qs('#recent5'); if(ul5){
+    ul5.innerHTML = '';
+    recent5.forEach(r=>{
+      const li = document.createElement('li');
+      li.textContent = `${r.timestamp}｜${r.type==='IN'?'入':'出'}｜${r.name||''}｜${r.qty}${r.unit||''}`;
+      ul5.appendChild(li);
+    });
+  }
+}
+
+function renderDashboard(){
+  const low = state.items.filter(it => Number(it.min||0) > 0 && Number(it.stock||0) <= Number(it.min));
+  const ul = qs('#low-stock-list'); if(ul){ ul.innerHTML=''; low.forEach(it=>{ const li=document.createElement('li'); li.textContent=`${it.name}（${it.code}） 残:${it.stock}`; li.style.color='var(--accent)'; ul.appendChild(li); }); }
+  const badge = qs('#badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
+  refreshTodayStats(); // <-- tambahan
+}
 
 // ---------- QR Scanners (flow: user → item) ----------
 let userScanner, itemScanner;
@@ -251,8 +317,28 @@ function addUserQR(id){
   cell.appendChild(meta);
   qs('#user-qr-grid')?.appendChild(cell);
 }
-function buildQRSheets(){ const g = qs('#qr-grid'); if(!g) return; g.innerHTML=''; state.items.forEach(i=> addItemQR(i.code)); }
-qs('#btn-print-qr')?.addEventListener('click', ()=> window.print());
+// Items → QR sheet
+function buildQRSheets(){
+  const grid = qs('#qr-grid'); if(!grid) return;
+  QRPrint.buildItemGrid(grid, state.items);
+}
+qs('#btn-print-qr')?.addEventListener('click', QRPrint.printA4);
+
+// Users → QR sheet
+function buildUserQRSheets(){
+  const grid = qs('#user-qr-grid'); if(!grid) return;
+  QRPrint.buildUserGrid(grid, state.users);
+}
+qs('#btn-print-user-qr')?.addEventListener('click', QRPrint.printA4);
+
+// 部品一覧（全アイテム）
+function buildParts(){
+  const grid = qs('#parts-qr-grid'); if(!grid) return;
+  QRPrint.buildItemGrid(grid, state.items);
+}
+qs('#btn-build-parts-qr')?.addEventListener('click', buildParts);
+qs('#btn-print-parts-qr')?.addEventListener('click', QRPrint.printA4);
+
 
 function buildParts(){ const grid = qs('#parts-qr-grid'); if(!grid) return; grid.innerHTML=''; state.items.forEach(i=>{ const c=document.createElement('div'); c.className='qr-cell'; const b=document.createElement('div'); c.appendChild(b); new QRCode(b,{text:JSON.stringify({t:'item',code:i.code,name:i.name,price:i.price}),width:120,height:120}); const m=document.createElement('div'); m.innerHTML=`<div class="name">${i.name}</div><div>${i.code}</div>`; c.appendChild(m); grid.appendChild(c); }); }
 qs('#btn-build-parts-qr')?.addEventListener('click', buildParts);
