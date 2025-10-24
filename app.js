@@ -1,233 +1,86 @@
 const qs = (s, el=document) => el.querySelector(s);
-const qsa = (s, el=document) => [...el.querySelectorAll(s)];
-const state = { items: [], users: [], settings: {}, cache: {}, stocktake: [] };
-
-// ---- API helper ----
-async function api(path, { method='GET', body }={}){
-  const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}`;
-  const headers = { 'Content-Type': 'application/json', 'X-API-KEY': CONFIG.API_KEY };
-  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body): undefined });
-  if(!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-function switchView(id){ qsa('.view').forEach(v=>v.classList.remove('active')); qs(`#view-${id}`).classList.add('active'); }
-qsa('.nav-btn').forEach(b=> b.addEventListener('click',()=>switchView(b.dataset.view)));
-
-// ---- Config ----
-qs('#btn-save-config').addEventListener('click',()=>{
-  const u = qs('#cfg-url').value.trim();
-  const k = qs('#cfg-key').value.trim();
-  if(u) localStorage.setItem('BASE_URL', u);
-  if(k) localStorage.setItem('API_KEY', k);
-  alert('保存しました。再読み込みしてください。');
+tr.innerHTML = `<td>${r.timestamp}</td><td>${r.userName||r.userId}</td><td>${r.name||''}</td><td>${r.code||''}</td><td>${r.qty}</td><td>${r.unit}</td><td>${r.type}</td>`;
+tbd.appendChild(tr);
 });
-
-// ---- Load initial data ----
-async function bootstrap(){
-  try{
-    const [items, users, settings] = await Promise.all([
-      api('items'), api('users'), api('settings')
-    ]);
-    state.items = items;
-    state.users = users;
-    state.settings = settings;
-    renderItems();
-    renderUsers();
-    renderDashboard();
-    buildQRSheets();
-  }catch(e){ console.error(e); alert('初期化に失敗しました: '+e.message); }
 }
 
-// ---- Dashboard ----
-function renderDashboard(){
-  const low = state.items.filter(it => Number(it.min||0) > 0 && Number(it.stock||0) <= Number(it.min));
-  const ul = qs('#low-stock-list'); ul.innerHTML='';
-  low.forEach(it=>{
-    const li = document.createElement('li');
-    li.textContent = `${it.name}（${it.code}） 残:${it.stock}`;
-    li.style.color = 'var(--danger)';
-    ul.appendChild(li);
-  });
-  qs('#today-summary').textContent = '最新の履歴は「履歴」タブで確認してください。';
-  qs('#btn-open-in').onclick = ()=>{ switchView('inout'); qs('#type').value='IN'; };
-  qs('#btn-open-out').onclick = ()=>{ switchView('inout'); qs('#type').value='OUT'; };
-}
-
-// ---- QR Scanner ----
-let userScanner, itemScanner;
-function startScanners(){
-  try{
-    userScanner = new Html5Qrcode("user-scanner");
-    itemScanner = new Html5Qrcode("item-scanner");
-    const conf = { fps:10, qrbox: { width: 200, height: 200 } };
-    Html5Qrcode.getCameras().then(cams=>{
-      const id = cams?.[0]?.id;
-      if(!id) return;
-      userScanner.start({deviceId:{exact:id}}, conf, onUserScan);
-      itemScanner.start({deviceId:{exact:id}}, conf, onItemScan);
-    });
-  }catch(e){ console.warn('Scanner error', e); }
-}
-function onUserScan(text){ qs('#user-id').value = text; const u = state.users.find(u=>u.id===text); qs('#user-name').textContent = u? u.name: '未登録ユーザー'; }
-function onItemScan(text){ qs('#item-code').value = text; const it = state.items.find(i=>i.code===text); qs('#item-detail').textContent = it? `${it.name} / 価格: ${it.price||'-'} / 在庫: ${it.stock}`: '未登録商品'; }
-
-// ---- 入出庫 ----
-qs('#btn-commit').addEventListener('click', async()=>{
-  const payload = {
-    userId: qs('#user-id').value.trim(),
-    code: qs('#item-code').value.trim(),
-    qty: Number(qs('#qty').value||0),
-    unit: qs('#unit').value,
-    type: qs('#type').value
-  };
-  if(!payload.userId || !payload.code || !payload.qty){ alert('必須項目が未入力です'); return; }
-  try{
-    const res = await api('log', { method:'POST', body: payload });
-    qs('#commit-status').textContent = '記録しました';
-    state.items = await api('items');
-    renderItems();
-  }catch(e){ alert('記録失敗: '+e.message); }
-});
-
-// ---- 商品一覧 / 検索 ----
-function renderItems(){
-  const tbd = qs('#items-table tbody'); tbd.innerHTML='';
-  const q = qs('#item-search').value?.toLowerCase() || '';
-  state.items.filter(it=> !q || `${it.name}${it.code}`.toLowerCase().includes(q)).forEach(it=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${it.name}</td><td>${it.code}</td><td>${it.price||''}</td><td>${it.stock||0}</td><td>${it.min||0}</td><td><button data-code="${it.code}" class="btn-gen-qr">QR</button></td>`;
-    tbd.appendChild(tr);
-  });
-  qsa('.btn-gen-qr').forEach(b=> b.onclick = ()=> addItemQR(b.dataset.code));
-}
-qs('#item-search').addEventListener('input', renderItems);
-
-// ---- 新規商品 ----
-qs('#btn-add-item').addEventListener('click', ()=> qs('#dlg-item').showModal());
-qs('#dlg-item-ok').addEventListener('click', async(e)=>{
-  e.preventDefault();
-  const body = {
-    name: qs('#dlg-item-name').value.trim(),
-    code: qs('#dlg-item-code').value.trim(),
-    price: Number(qs('#dlg-item-price').value||0),
-    stock: Number(qs('#dlg-item-stock').value||0),
-    min: Number(qs('#dlg-item-min').value||0)
-  };
-  if(!body.name||!body.code){ alert('必須項目'); return; }
-  try{ await api('addItem', { method:'POST', body }); qs('#dlg-item').close(); state.items = await api('items'); renderItems(); buildQRSheets(); }
-  catch(e){ alert('作成失敗: '+e.message); }
-});
-
-// ---- 新規ユーザー ----
-qs('#btn-add-user').addEventListener('click', ()=> qs('#dlg-user').showModal());
-qs('#dlg-user-ok').addEventListener('click', async(e)=>{
-  e.preventDefault();
-  const body = { name: qs('#dlg-user-name').value.trim(), id: qs('#dlg-user-id').value.trim() };
-  if(!body.name||!body.id){ alert('必須項目'); return; }
-  try{ await api('addUser', { method:'POST', body }); qs('#dlg-user').close(); state.users = await api('users'); renderUsers(); buildUserQRSheets(); }
-  catch(e){ alert('作成失敗: '+e.message); }
-});
-
-function renderUsers(){
-  const tbd = qs('#users-table tbody'); tbd.innerHTML='';
-  state.users.forEach(u=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.id}</td><td><button data-id="${u.id}" class="btn-user-qr">QR</button></td>`;
-    tbd.appendChild(tr);
-  });
-  qsa('.btn-user-qr').forEach(b=> b.onclick = ()=> addUserQR(b.dataset.id));
-}
-
-// ---- 履歴 ----
-qs('#btn-filter-history').addEventListener('click', loadHistory);
-async function loadHistory(){
-  const params = {
-    q: qs('#history-search').value.trim(),
-    from: qs('#date-from').value,
-    to: qs('#date-to').value
-  };
-  const rows = await api('history', { method:'POST', body: params });
-  const tbd = qs('#history-table tbody'); tbd.innerHTML='';
-  rows.forEach(r=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.timestamp}</td><td>${r.userName||r.userId}</td><td>${r.name||''}</td><td>${r.code||''}</td><td>${r.qty}</td><td>${r.unit}</td><td>${r.type}</td>`;
-    tbd.appendChild(tr);
-  });
-}
 
 // ---- QR 生成（商品 / ユーザー） ----
 function addItemQR(code){
-  const it = state.items.find(i=>i.code===code); if(!it) return;
-  const cell = document.createElement('div'); cell.className='qr-cell';
-  const box = document.createElement('div'); box.className='box';
-  cell.appendChild(box);
-  new QRCode(box, { text: JSON.stringify({ t:'item', code: it.code, name: it.name, price: it.price}), width:120, height:120 });
-  const meta = document.createElement('div'); meta.innerHTML = `<div class="name">${it.name}</div><div>${it.code}</div><div>¥${it.price||'-'}</div>`; cell.appendChild(meta);
-  qs('#qr-grid').appendChild(cell);
+const it = state.items.find(i=>i.code===code); if(!it) return;
+const cell = document.createElement('div'); cell.className='qr-cell';
+const box = document.createElement('div'); box.className='box';
+cell.appendChild(box);
+new QRCode(box, { text: JSON.stringify({ t:'item', code: it.code, name: it.name, price: it.price}), width:120, height:120 });
+const meta = document.createElement('div'); meta.innerHTML = `<div class="name">${it.name}</div><div>${it.code}</div><div>¥${it.price||'-'}</div>`; cell.appendChild(meta);
+qs('#qr-grid').appendChild(cell);
 }
 function addUserQR(id){
-  const u = state.users.find(x=>x.id===id); if(!u) return;
-  const cell = document.createElement('div'); cell.className='qr-cell';
-  const box = document.createElement('div'); box.className='box';
-  cell.appendChild(box);
-  new QRCode(box, { text: JSON.stringify({ t:'user', id: u.id, name: u.name }), width:120, height:120 });
-  const meta = document.createElement('div'); meta.innerHTML = `<div class="name">${u.name}</div><div>${u.id}</div>`; cell.appendChild(meta);
-  qs('#user-qr-grid').appendChild(cell);
+const u = state.users.find(x=>x.id===id); if(!u) return;
+const cell = document.createElement('div'); cell.className='qr-cell';
+const box = document.createElement('div'); box.className='box';
+cell.appendChild(box);
+new QRCode(box, { text: JSON.stringify({ t:'user', id: u.id, name: u.name }), width:120, height:120 });
+const meta = document.createElement('div'); meta.innerHTML = `<div class="name">${u.name}</div><div>${u.id}</div>`; cell.appendChild(meta);
+qs('#user-qr-grid').appendChild(cell);
 }
 function buildQRSheets(){ qs('#qr-grid').innerHTML=''; state.items.forEach(i=> addItemQR(i.code)); }
 function buildUserQRSheets(){ qs('#user-qr-grid').innerHTML=''; state.users.forEach(u=> addUserQR(u.id)); }
 qs('#btn-print-qr').onclick = ()=> window.print();
 qs('#btn-print-user-qr').onclick = ()=> window.print();
 
+
 // ---- インポート/エクスポート（商品 / 履歴） ----
 qs('#btn-export-items').onclick = async()=>{
-  const rows = await api('exportItems');
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '商品一覧');
-  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  saveAs(new Blob([out],{type:'application/octet-stream'}), 'items.xlsx');
+const rows = await api('exportItems');
+const ws = XLSX.utils.json_to_sheet(rows);
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, '商品一覧');
+const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+saveAs(new Blob([out],{type:'application/octet-stream'}), 'items.xlsx');
 };
 qs('#import-items').addEventListener('change', async(e)=>{
-  const file = e.target.files[0]; if(!file) return;
-  const data = await file.arrayBuffer();
-  const wb = XLSX.read(data); const sheet = wb.Sheets[wb.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json(sheet);
-  await api('importItems', { method:'POST', body: { rows: json } });
-  state.items = await api('items'); renderItems(); buildQRSheets();
-  alert('インポート完了');
+const file = e.target.files[0]; if(!file) return;
+const data = await file.arrayBuffer();
+const wb = XLSX.read(data); const sheet = wb.Sheets[wb.SheetNames[0]];
+const json = XLSX.utils.sheet_to_json(sheet);
+await api('importItems', { method:'POST', body: { rows: json } });
+state.items = await api('items'); renderItems(); buildQRSheets();
+alert('インポート完了');
 });
 
+
 qs('#btn-export-history').onclick = async()=>{
-  const rows = await api('history', { method:'POST', body: {} });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '履歴');
-  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  saveAs(new Blob([out],{type:'application/octet-stream'}), 'history.xlsx');
+const rows = await api('history', { method:'POST', body: {} });
+const ws = XLSX.utils.json_to_sheet(rows);
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, '履歴');
+const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+saveAs(new Blob([out],{type:'application/octet-stream'}), 'history.xlsx');
 };
+
 
 // ---- 棚卸 ----
 qs('#btn-start-stocktake').onclick = ()=>{
-  state.stocktake = state.items.map(it=> ({ name: it.name, code: it.code, actual: it.stock||0, diff: 0 }));
-  const tbd = qs('#stocktake-table tbody'); tbd.innerHTML='';
-  state.stocktake.forEach(row=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${row.name}</td><td>${row.code}</td><td><input type="number" step="0.01" value="${row.actual}" data-code="${row.code}" class="stk"/></td><td class="diff">0</td>`;
-    tbd.appendChild(tr);
-  });
-  qsa('input.stk').forEach(inp=> inp.oninput = (e)=>{
-    const code = e.target.dataset.code; const val = Number(e.target.value||0);
-    const it = state.items.find(i=>i.code===code); const d = val - Number(it.stock||0);
-    e.target.closest('tr').querySelector('.diff').textContent = d.toFixed(2);
-  });
+state.stocktake = state.items.map(it=> ({ name: it.name, code: it.code, actual: it.stock||0, diff: 0 }));
+const tbd = qs('#stocktake-table tbody'); tbd.innerHTML='';
+state.stocktake.forEach(row=>{
+const tr = document.createElement('tr');
+tr.innerHTML = `<td>${row.name}</td><td>${row.code}</td><td><input type=\"number\" step=\"0.01\" value=\"${row.actual}\" data-code=\"${row.code}\" class=\"stk\"/></td><td class=\"diff\">0</td>`;
+tbd.appendChild(tr);
+});
+qsa('input.stk').forEach(inp=> inp.oninput = (e)=>{
+const code = e.target.dataset.code; const val = Number(e.target.value||0);
+const it = state.items.find(i=>i.code===code); const d = val - Number(it.stock||0);
+e.target.closest('tr').querySelector('.diff').textContent = d.toFixed(2);
+});
 };
 qs('#btn-finish-stocktake').onclick = async()=>{
-  const updates = qsa('input.stk').map(inp=> ({ code: inp.dataset.code, stock: Number(inp.value||0) }));
-  await api('stocktake', { method:'POST', body: { updates } });
-  state.items = await api('items'); renderItems(); alert('棚卸を反映しました');
+const updates = qsa('input.stk').map(inp=> ({ code: inp.dataset.code, stock: Number(inp.value||0) }));
+await api('stocktake', { method:'POST', body: { updates } });
+state.items = await api('items'); renderItems(); alert('棚卸を反映しました');
 };
+
 
 // ---- 初期起動 ----
 window.addEventListener('DOMContentLoaded', ()=>{ startScanners(); bootstrap(); });
