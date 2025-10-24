@@ -58,10 +58,13 @@
       <header class="topbar">
         <input class="search" placeholder="検索… (Ctrl+/)" />
         <div class="top-actions">
-          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
-          <button id="btn-open-in-top" class="primary">入庫</button>
-          <button id="btn-open-out-top" class="accent">出庫</button>
-        </div>
+  <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
+  <button id="btn-login" class="ghost">ログイン</button>
+  <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
+  <button id="btn-open-in-top" class="primary">入庫</button>
+  <button id="btn-open-out-top" class="accent">出庫</button>
+</div>
+
       </header>
 
       <main id="app">
@@ -264,6 +267,17 @@
       </menu>
     </form>
   </dialog>
+  <dialog id="dlg-login">
+  <form method="dialog">
+    <h3>ログイン</h3>
+    <label>ユーザーID<input id="login-id" required placeholder="例: ADMIN001"></label>
+    <menu>
+      <button value="cancel">キャンセル</button>
+      <button id="dlg-login-ok" value="ok" class="primary">ログイン</button>
+    </menu>
+  </form>
+</dialog>
+
 <script src="qrlib.js" defer></script>
 
   <script src="app.js" defer></script>
