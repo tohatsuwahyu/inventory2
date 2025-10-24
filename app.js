@@ -3,13 +3,22 @@ const qsa = (s, el=document) => [...el.querySelectorAll(s)];
 const state = { items: [], users: [], currentUser: null, stocktake: [] };
 
 // ---- API helper ----
-async function api(path, { method='GET', body }={}){
+async function api(path, { method='GET', body } = {}) {
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
-  const headers = { 'Content-Type': 'application/json' };
-  const payload = body ? JSON.stringify({ ...body, apikey: CONFIG.API_KEY }) : undefined;
-  const res = await fetch(url, { method, headers, body: payload });
-  if(!res.ok) throw new Error(await res.text());
+  // GET = simple request (tanpa body/header aneh) → tidak preflight
+  if (method === 'GET') {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+  // POST = simple request juga → pakai text/plain
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...(body || {}), apikey: CONFIG.API_KEY })
+  });
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
