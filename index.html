@@ -29,17 +29,19 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="sb-brand">
-        <img src="assets/tsh.png" alt="logo"/>
+        <img src="assets/logo.svg" alt="logo"/>
         <span>在庫管理</span>
       </div>
       <nav class="sb-nav">
         <button class="sb-link active" data-view="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></button>
         <button class="sb-link" data-view="inout"><span class="icon">🔄</span><span>入出庫</span></button>
         <button class="sb-link" data-view="stocktake"><span class="icon">🧾</span><span>棚卸</span></button>
-        <div class="sb-label">マスター</div>
-        <button class="sb-link" data-view="items"><span class="icon">📦</span><span>商品</span><span class="badge" id="badge-low">0</span></button>
-        <button class="sb-link" data-view="users"><span class="icon">👤</span><span>ユーザー</span></button>
+        <div class="sb-label admin-only">マスター</div>
+        <button class="sb-link admin-only" data-view="items"><span class="icon">📦</span><span>商品</span><span class="badge" id="badge-low">0</span></button>
+        <button class="sb-link admin-only" data-view="users"><span class="icon">👤</span><span>ユーザー</span></button>
         <div class="sb-label">データ</div>
+        <button class="sb-link" data-view="stock"><span class="icon">📊</span><span>在庫</span></button>
+        <button class="sb-link" data-view="parts"><span class="icon">🧩</span><span>部品一覧</span></button>
         <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
       </nav>
       <div class="sb-foot">JP • v1.0</div>
@@ -181,6 +183,31 @@
             </thead>
             <tbody></tbody>
           </table>
+        </section>
+
+        <!-- 在庫（閲覧＋出力） -->
+        <section id="view-stock" class="view">
+          <div class="toolbar">
+            <button id="btn-export-items-2">CSV エクスポート</button>
+            <label class="file">CSV インポート<input id="import-items-2" type="file" accept=".csv,.xlsx" /></label>
+          </div>
+          <table id="stock-table">
+            <thead>
+              <tr>
+                <th>商品名</th><th>コード</th><th>在庫</th><th>下限</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- 部品一覧（QR 印刷専用） -->
+        <section id="view-parts" class="view">
+          <div class="toolbar">
+            <button id="btn-build-parts-qr" class="primary">QR を生成</button>
+            <button id="btn-print-parts-qr" class="accent">印刷</button>
+          </div>
+          <div id="parts-qr-grid" class="qr-grid"></div>
         </section>
       </main>
     </section>
