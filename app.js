@@ -1,3 +1,25 @@
+// ---- Login/Logout (manual) ----
+qs('#btn-login')?.addEventListener('click', ()=> qs('#dlg-login').showModal());
+qs('#dlg-login-ok')?.addEventListener('click', (e)=>{
+  e.preventDefault();
+  const id = qs('#login-id').value.trim();
+  if(!id){ alert('ユーザーIDを入力してください'); return; }
+  const u = state.users.find(x=>x.id===id);
+  if(!u){ alert('ユーザーが見つかりません（先にQRスキャンまたは管理者に登録依頼）'); return; }
+  state.currentUser = {...u};
+  qs('#dlg-login').close();
+  updateWho(); applyRole();
+  qs('#btn-login').style.display='none';
+  qs('#btn-logout').style.display='';
+});
+qs('#btn-logout')?.addEventListener('click', ()=>{
+  state.currentUser = null;
+  updateWho(); applyRole();
+  stopScanners();
+  qs('#btn-login').style.display='';
+  qs('#btn-logout').style.display='none';
+});
+
 // ---------- Utils ----------
 const qs = (s, el=document) => el.querySelector(s);
 const qsa = (s, el=document) => [...el.querySelectorAll(s)];
