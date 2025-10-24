@@ -1,4 +1,19 @@
 <!doctype html>
+<tbody></tbody>
+</table>
+<div id="user-qr-print" class="print-a4">
+<h2>ユーザー QR 一覧</h2>
+<div id="user-qr-grid" class="qr-grid"></div>
+<button id="btn-print-user-qr">印刷</button>
+</div>
+</section>
+
+
+<!-- 履歴 -->
+<section id="view-history" class="view">
+<div class="toolbar">
+<input id="history-search" placeholder="商品/ユーザー/種別" />
+<input id="date-from" type="date" />
 <input id="date-to" type="date" />
 <button id="btn-filter-history">検索</button>
 <button id="btn-export-history">CSV エクスポート</button>
@@ -12,18 +27,9 @@
 <tbody></tbody>
 </table>
 </section>
-
-
-<!-- 設定 -->
-<section id="view-settings" class="view">
-<h2>接続設定</h2>
-<label>Apps Script Web App URL</label>
-<input id="cfg-url" placeholder="https://script.google.com/.../exec" />
-<label>API キー (半角英数のみ推奨)</label>
-<input id="cfg-key" placeholder="e.g. supersecret123" />
-<button id="btn-save-config" class="primary">保存</button>
-</section>
 </main>
+</section>
+</div>
 
 
 <!-- ダイアログ（商品/ユーザー追加） -->
@@ -54,9 +60,6 @@
 </menu>
 </form>
 </dialog>
-
-
-<footer class="footer">© 2025 wahyu</footer>
 
 
 <script src="app.js" defer></script>
