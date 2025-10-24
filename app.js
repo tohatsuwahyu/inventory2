@@ -6,21 +6,23 @@ const state = { items: [], users: [], currentUser: null, stocktake: [] };
 async function api(path, { method='GET', body } = {}) {
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
-  // GET = simple request (tanpa body/header aneh) → tidak preflight
-  if (method === 'GET') {
+
+  if (method === 'GET') {                 // GET tanpa header → no preflight
     const res = await fetch(url);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
-  // POST = simple request juga → pakai text/plain
-  const res = await fetch(url, {
+
+  const res = await fetch(url, {          // POST text/plain → no preflight
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...(body || {}), apikey: CONFIG.API_KEY })
+    body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+  
 
 function switchView(id){
   qsa('.view').forEach(v=>v.classList.remove('active'));
