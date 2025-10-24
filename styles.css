@@ -43,6 +43,8 @@ tr:hover{background:#f1f5f9}
 .muted{color:var(--muted);margin-top:6px}
 .scanner{height:260px;min-width:260px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center}
 .footer{padding:20px;text-align:center;color:#94a3b8;background:#fff;border-top:1px solid var(--line)}
+.scanner { height: 320px; min-width: 320px; }   /* sebelumnya 260px */
+@media (max-width: 480px){ .scanner { height: 260px; min-width: 260px; } }
 
 /* Print */
 .print-a4{background:#fff;color:#000;border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--line)}
