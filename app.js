@@ -61,19 +61,39 @@ function renderDashboard(){
 }
 
 // ---- QR Scanner ----
-let userScanner, itemScanner;
-function startScanners(){
-  try{
-    userScanner = new Html5Qrcode("user-scanner");
-    itemScanner = new Html5Qrcode("item-scanner");
-    const conf = { fps:10, qrbox: { width: 200, height: 200 } };
-    Html5Qrcode.getCameras().then(cams=>{
-      const id = cams?.[0]?.id; if(!id) return;
-      userScanner.start({deviceId:{exact:id}}, conf, onUserScan);
-      itemScanner.start({deviceId:{exact:id}}, conf, onItemScan);
-    });
-  }catch(e){ console.warn('Scanner error', e); }
+ let userScanner, itemScanner;
+
+async function startScanners() {
+  const conf = { fps: 10, qrbox: { width: 250, height: 250 } };
+  const cams = await Html5Qrcode.getCameras();
+  const id = cams?.[0]?.id; if (!id) return;
+  userScanner = new Html5Qrcode("user-scanner");
+  itemScanner = new Html5Qrcode("item-scanner");
+  await userScanner.start({ deviceId: { exact: id } }, conf, onUserScan);
+  await itemScanner.start({ deviceId: { exact: id } }, conf, onItemScan);
 }
+
+async function stopScanners() {
+  try { await userScanner?.stop(); userScanner?.clear(); } catch(_){}
+  try { await itemScanner?.stop(); itemScanner?.clear(); } catch(_){}
+  userScanner = itemScanner = null;
+}
+
+function switchView(id){
+  // hide all / show one
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelector(`#view-${id}`).classList.add('active');
+  document.querySelectorAll('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
+
+  // scanner lifecycle
+  if (id === 'inout') {
+    // tunggu elemen tampil penuh dulu
+    setTimeout(()=> startScanners(), 50);
+  } else {
+    stopScanners();
+  }
+}
+
 function onUserScan(text){
   qs('#user-id').value = text;
   const u = state.users.find(u=>u.id===text);
