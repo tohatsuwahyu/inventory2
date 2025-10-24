@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>在庫管理 | Inventory</title>
+  <link rel="icon" href="/public/favicon.svg" />
+  <!-- Tailwind CSS CDN (no build) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Noto Sans JP", "sans-serif"] },
+          boxShadow: { soft: "0 8px 24px rgba(0,0,0,.06)" }
+        }
+      }
+    }
+  </script>
+  <!-- html5-qrcode for QR/Barcode scanning -->
+  <script defer src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+  <!-- Topbar -->
+  <header class="sticky top-0 z-30 bg-white/70 backdrop-blur border-b">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-lg sm:text-xl font-semibold">在庫管理ダッシュボード</h1>
+      <nav class="flex gap-1">
+        <button data-link="#/" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">ダッシュボード</button>
+        <button data-link="#/in" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">入庫</button>
+        <button data-link="#/out" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">出庫</button>
+        <button data-link="#/so" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">棚卸（SO）</button>
+        <button data-link="#/logs" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">履歴</button>
+        <button data-link="#/items" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">マスター</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4">
+    <!-- Alerts -->
+    <div id="alert-area" class="space-y-2 mb-4"></div>
+
+    <!-- Views injected here -->
+    <section id="app" class="grid gap-4"></section>
+  </main>
+
+  <footer class="max-w-6xl mx-auto p-4 text-xs text-gray-500">
+    <div class="flex items-center justify-between">
+      <span>© <span id="y"></span> 在庫管理</span>
+      <div class="flex gap-2">
+        <button id="btn-export" class="px-3 py-1.5 rounded-xl border hover:bg-gray-50">CSVエクスポート</button>
+        <button id="btn-print" class="px-3 py-1.5 rounded-xl border hover:bg-gray-50">印刷</button>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>
