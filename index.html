@@ -1,59 +1,234 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>在庫管理 | Inventory</title>
-  <link rel="icon" href="/public/favicon.svg" />
-  <!-- Tailwind CSS CDN (no build) -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>在庫管理（QR）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="print.css" media="print" />
+
+  <!-- ライブラリ：QR 生成 / 読み取り / PDF印刷 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Noto Sans JP", "sans-serif"] },
-          boxShadow: { soft: "0 8px 24px rgba(0,0,0,.06)" }
-        }
-      }
-    }
+    // ▶▶ 必須：Apps Script Web App URL と API キーを設定
+    window.CONFIG = {
+      BASE_URL: localStorage.getItem('BASE_URL') || '<<YOUR_APPS_SCRIPT_WEB_APP_URL>>',
+      API_KEY: localStorage.getItem('API_KEY') || '<<SETTINGS!B1 などに保存したキー>>'
+    };
   </script>
-  <!-- html5-qrcode for QR/Barcode scanning -->
-  <script defer src="https://unpkg.com/html5-qrcode"></script>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen">
-  <!-- Topbar -->
-  <header class="sticky top-0 z-30 bg-white/70 backdrop-blur border-b">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <h1 class="text-lg sm:text-xl font-semibold">在庫管理ダッシュボード</h1>
-      <nav class="flex gap-1">
-        <button data-link="#/" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">ダッシュボード</button>
-        <button data-link="#/in" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">入庫</button>
-        <button data-link="#/out" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">出庫</button>
-        <button data-link="#/so" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">棚卸（SO）</button>
-        <button data-link="#/logs" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">履歴</button>
-        <button data-link="#/items" class="navbtn px-3 py-1.5 rounded-xl hover:bg-gray-100">マスター</button>
-      </nav>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="../assets/logo.svg" alt="logo"/>
+      <h1>在庫管理システム</h1>
     </div>
+    <nav>
+      <button class="nav-btn" data-view="dashboard">ダッシュボード</button>
+      <button class="nav-btn" data-view="inout">入出庫</button>
+      <button class="nav-btn" data-view="stocktake">棚卸</button>
+      <button class="nav-btn" data-view="items">商品</button>
+      <button class="nav-btn" data-view="users">ユーザー</button>
+      <button class="nav-btn" data-view="history">履歴</button>
+      <button class="nav-btn" data-view="settings">設定</button>
+    </nav>
   </header>
 
-  <main class="max-w-6xl mx-auto p-4">
-    <!-- Alerts -->
-    <div id="alert-area" class="space-y-2 mb-4"></div>
+  <main id="app">
+    <!-- Dashboard -->
+    <section id="view-dashboard" class="view active">
+      <div class="cards">
+        <div class="card">
+          <h3>在庫アラート</h3>
+          <ul id="low-stock-list"></ul>
+        </div>
+        <div class="card">
+          <h3>本日の入出庫</h3>
+          <div id="today-summary"></div>
+        </div>
+        <div class="card">
+          <h3>クイック操作</h3>
+          <button id="btn-open-in">入庫</button>
+          <button id="btn-open-out" class="danger">出庫</button>
+        </div>
+      </div>
+    </section>
 
-    <!-- Views injected here -->
-    <section id="app" class="grid gap-4"></section>
+    <!-- 入出庫 -->
+    <section id="view-inout" class="view">
+      <div class="grid-2">
+        <div class="pane">
+          <h2>QR スキャナ（ユーザー）</h2>
+          <div id="user-scanner" class="scanner"></div>
+          <div class="info">
+            <label>ユーザー：</label>
+            <input id="user-id" placeholder="ユーザーID (QR)" />
+            <div id="user-name" class="muted"></div>
+          </div>
+        </div>
+        <div class="pane">
+          <h2>QR スキャナ（商品）</h2>
+          <div id="item-scanner" class="scanner"></div>
+          <div class="info">
+            <label>商品コード：</label>
+            <input id="item-code" placeholder="商品コード (QR)" />
+            <div id="item-detail" class="muted"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div>
+          <label>数量</label>
+          <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
+        </div>
+        <div>
+          <label>単位</label>
+          <select id="unit">
+            <option value="pcs">pcs</option>
+            <option value="g">g</option>
+          </select>
+        </div>
+        <div>
+          <label>種別</label>
+          <select id="type">
+            <option value="IN">入庫</option>
+            <option value="OUT">出庫</option>
+          </select>
+        </div>
+      </div>
+      <button id="btn-commit" class="primary">記録する</button>
+      <div id="commit-status" class="muted"></div>
+    </section>
+
+    <!-- 商品 -->
+    <section id="view-items" class="view">
+      <div class="toolbar">
+        <button id="btn-add-item" class="primary">新規商品</button>
+        <input id="item-search" placeholder="検索..."/>
+        <button id="btn-export-items">CSV エクスポート</button>
+        <label class="file">
+          CSV インポート<input id="import-items" type="file" accept=".csv,.xlsx" />
+        </label>
+      </div>
+      <table id="items-table">
+        <thead>
+          <tr>
+            <th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>QR</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <!-- QR 印刷エリア (A4 縦) -->
+      <div id="qr-print-sheet" class="print-a4">
+        <h2>商品 QR 一覧</h2>
+        <div id="qr-grid" class="qr-grid"></div>
+        <button id="btn-print-qr">印刷</button>
+      </div>
+    </section>
+
+    <!-- ユーザー -->
+    <section id="view-users" class="view">
+      <div class="toolbar">
+        <button id="btn-add-user" class="primary">新規ユーザー</button>
+      </div>
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>名前</th><th>ID</th><th>QR</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="user-qr-print" class="print-a4">
+        <h2>ユーザー QR 一覧</h2>
+        <div id="user-qr-grid" class="qr-grid"></div>
+        <button id="btn-print-user-qr">印刷</button>
+      </div>
+    </section>
+
+    <!-- 棚卸 -->
+    <section id="view-stocktake" class="view">
+      <div class="toolbar">
+        <button id="btn-start-stocktake" class="primary">棚卸開始</button>
+        <button id="btn-finish-stocktake" class="danger">棚卸確定</button>
+      </div>
+      <table id="stocktake-table">
+        <thead>
+          <tr><th>商品名</th><th>コード</th><th>実在庫</th><th>差分</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- 履歴 -->
+    <section id="view-history" class="view">
+      <div class="toolbar">
+        <input id="history-search" placeholder="商品/ユーザー/種別" />
+        <input id="date-from" type="date" />
+        <input id="date-to" type="date" />
+        <button id="btn-filter-history">検索</button>
+        <button id="btn-export-history">CSV エクスポート</button>
+      </div>
+      <table id="history-table">
+        <thead>
+          <tr>
+            <th>日時</th><th>ユーザー</th><th>商品</th><th>コード</th><th>数量</th><th>単位</th><th>種別</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- 設定 -->
+    <section id="view-settings" class="view">
+      <h2>接続設定</h2>
+      <label>Apps Script Web App URL</label>
+      <input id="cfg-url" placeholder="https://script.google.com/.../exec" />
+      <label>API キー</label>
+      <input id="cfg-key" placeholder="..." />
+      <button id="btn-save-config" class="primary">保存</button>
+    </section>
   </main>
 
-  <footer class="max-w-6xl mx-auto p-4 text-xs text-gray-500">
-    <div class="flex items-center justify-between">
-      <span>© <span id="y"></span> 在庫管理</span>
-      <div class="flex gap-2">
-        <button id="btn-export" class="px-3 py-1.5 rounded-xl border hover:bg-gray-50">CSVエクスポート</button>
-        <button id="btn-print" class="px-3 py-1.5 rounded-xl border hover:bg-gray-50">印刷</button>
-      </div>
-    </div>
-  </footer>
+  <!-- ダイアログ（商品/ユーザー追加） -->
+  <dialog id="dlg-item">
+    <form method="dialog">
+      <h3>新規商品</h3>
+      <label>商品名<input id="dlg-item-name" required></label>
+      <label>コード<input id="dlg-item-code" required></label>
+      <label>価格 (JPY)<input id="dlg-item-price" type="number" step="1"></label>
+      <label>初期在庫<input id="dlg-item-stock" type="number" step="0.01" value="0"></label>
+      <label>下限在庫<input id="dlg-item-min" type="number" step="0.01" value="0"></label>
+      <menu>
+        <button value="cancel">キャンセル</button>
+        <button id="dlg-item-ok" value="ok" class="primary">作成</button>
+      </menu>
+    </form>
+  </dialog>
 
-  <script type="module" src="/src/app.js"></script>
+  <dialog id="dlg-user">
+    <form method="dialog">
+      <h3>新規ユーザー</h3>
+      <label>名前<input id="dlg-user-name" required></label>
+      <label>ID<input id="dlg-user-id" required></label>
+      <menu>
+        <button value="cancel">キャンセル</button>
+        <button id="dlg-user-ok" value="ok" class="primary">作成</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <footer class="footer">© 2025 Inventory JP</footer>
+
+  <script src="app.js" defer></script>
 </body>
 </html>
