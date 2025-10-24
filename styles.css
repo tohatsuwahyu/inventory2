@@ -1,0 +1,37 @@
+:root{--bg:#0f172a;--panel:#111827;--muted:#6b7280;--primary:#2563eb;--danger:#ef4444;--ok:#10b981;--text:#e5e7eb;--white:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:"Noto Sans JP",system-ui;background:#0b1020;color:var(--text)}
+.topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(90deg,#0b1020,#0f172a)}
+.brand{display:flex;gap:10px;align-items:center}
+.brand h1{font-size:18px;margin:0}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav-btn{background:#111827;border:1px solid #1f2937;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+.nav-btn:hover{border-color:#374151}
+#app{padding:16px}
+.view{display:none}
+.view.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:#0f172a;border:1px solid #1f2937;border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:10px 0}
+.pane{background:#0f172a;border:1px solid #1f2937;border-radius:16px;padding:16px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+input,select,button{width:100%;padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1020;color:var(--text)}
+button.primary{background:var(--primary);border-color:transparent}
+button.danger{background:var(--danger);border-color:transparent}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;background:#0b1020;border:1px solid #1f2937;border-radius:10px;overflow:hidden}
+th,td{padding:10px;border-bottom:1px solid #1f2937}
+th{background:#0f172a;text-align:left;color:#cbd5e1}
+tr:hover{background:#0f1225}
+.muted{color:var(--muted);margin-top:6px}
+.scanner{height:240px;border:1px dashed #334155;border-radius:12px}
+.footer{padding:20px;text-align:center;color:#94a3b8}
+
+/* QR 印刷用 */
+.print-a4{background:#fff;color:#000;border-radius:12px;padding:16px;margin-top:16px}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.qr-cell{border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center}
+.qr-cell .name{font-weight:700}
+
+@media (max-width:920px){.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr}}
