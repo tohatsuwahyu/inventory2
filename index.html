@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在庫管理（QR）</title>
 
-  <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="./assets/tsh.png">
+
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="print.css" media="print" />
-  <link rel="icon" type="image/png" href="./assets/tsh.png">
 
   <!-- Libs -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
@@ -20,12 +20,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="qrlib.js" defer></script>
-  <!-- Konfigurasi TERPISAH (jangan tulis inline di sini) -->
+
+  <!-- Config dulu, baru app -->
   <script src="config.js" defer></script>
-  <!-- Aplikasi -->
   <script src="app.js" defer></script>
 </head>
-
 <body class="light">
   <div class="layout">
     <aside class="sidebar">
@@ -49,21 +48,20 @@
         <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
       </nav>
 
-      <div class="sb-foot">JP • v1.1</div>
+      <div class="sb-foot">JP • v1.2</div>
     </aside>
 
     <section class="content">
       <header class="topbar">
         <input class="search" placeholder="検索… (Ctrl+/)" />
-   <div class="top-actions">
-  <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
-  <button id="btn-login-qr" class="ghost">QRログイン</button>
-  <button id="btn-login-pass" class="ghost">ログイン</button>
-  <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
-  <button id="btn-open-in-top" class="primary">入庫</button>
-  <button id="btn-open-out-top" class="accent">出庫</button>
-</div>
-
+        <div class="top-actions">
+          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
+          <button id="btn-login-qr" class="ghost">QRログイン</button>
+          <button id="btn-login-pass" class="ghost">ログイン</button>
+          <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
+          <button id="btn-open-in-top" class="primary">入庫</button>
+          <button id="btn-open-out-top" class="accent">出庫</button>
+        </div>
       </header>
 
       <main id="app">
@@ -94,57 +92,42 @@
         </section>
 
         <!-- 入出庫 -->
-       <section id="view-inout" class="view">
-  <div class="grid-1">
-    <div class="pane">
-      <h2>QR スキャナ（商品）</h2>
-      <div id="item-scanner" class="scanner"></div>
-      <div class="info">
-        <label>商品コード</label>
-        <input id="item-code" placeholder="商品コード (QR)" disabled />
-        <div id="item-detail" class="muted"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid-3">
-    <div>
-      <label>数量</label>
-      <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
-    </div>
-    <div>
-      <label>単位</label>
-      <select id="unit">
-        <option value="pcs">pcs</option>
-        <option value="g">g</option>
-      </select>
-    </div>
-    <div>
-      <label>種別</label>
-      <select id="type">
-        <option value="IN">入庫</option>
-        <option value="OUT">出庫</option>
-      </select>
-    </div>
-  </div>
-
-  <button id="btn-commit" class="primary">記録する</button>
-  <div id="commit-status" class="muted"></div>
-</section>
-
-
-        <!-- 棚卸 -->
-        <section id="view-stocktake" class="view">
-          <div class="toolbar">
-            <button id="btn-start-stocktake" class="primary admin-only">棚卸を開始</button>
-            <button id="btn-finish-stocktake" class="accent admin-only">棚卸を反映</button>
+        <section id="view-inout" class="view">
+          <div class="grid-1">
+            <div class="pane">
+              <h2>QR スキャナ（商品）</h2>
+              <div id="item-scanner" class="scanner"></div>
+              <div class="info">
+                <label>商品コード</label>
+                <input id="item-code" placeholder="商品コード (QR)" disabled />
+                <div id="item-detail" class="muted"></div>
+              </div>
+            </div>
           </div>
-          <table id="stocktake-table">
-            <thead>
-              <tr><th>商品名</th><th>コード</th><th>実在庫</th><th>差分</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+
+          <div class="grid-3">
+            <div>
+              <label>数量</label>
+              <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
+            </div>
+            <div>
+              <label>単位</label>
+              <select id="unit">
+                <option value="pcs">pcs</option>
+                <option value="g">g</option>
+              </select>
+            </div>
+            <div>
+              <label>種別</label>
+              <select id="type">
+                <option value="IN">入庫</option>
+                <option value="OUT">出庫</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btn-commit" class="primary">記録する</button>
+          <div id="commit-status" class="muted"></div>
         </section>
 
         <!-- 商品 -->
@@ -157,10 +140,8 @@
           </div>
           <table id="items-table">
             <thead>
-  <tr>
-    <th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>操作</th>
-  </tr>
-</thead>
+              <tr><th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>操作</th></tr>
+            </thead>
             <tbody></tbody>
           </table>
 
@@ -170,53 +151,54 @@
             <button id="btn-print-qr">印刷</button>
           </div>
         </section>
-<!-- ========= DETAIL BARANG ========= -->
-<section id="view-item-detail" class="view">
-  <div class="detail-wrap">
-    <aside class="detail-side">
-      <button class="ghost" id="btn-back-items">← 戻る</button>
-      <div class="detail-card">
-        <div class="thumb" id="d-thumb">📦</div>
-        <div class="title" id="d-name">-</div>
-        <div class="muted" id="d-code">-</div>
-        <div class="muted">価格: <b id="d-price">-</b></div>
-      </div>
-      <div class="detail-card">
-        <div>初期在庫: <b id="d-init">0</b></div>
-        <div>入庫合計: <b id="d-in">0</b></div>
-        <div>出庫合計: <b id="d-out">0</b></div>
-        <div>現在在庫: <b id="d-stock">0</b></div>
-        <div>下限在庫: <b id="d-min">0</b></div>
-      </div>
-      <div class="detail-card">
-        <div id="d-qr"></div>
-        <button class="primary" id="btn-print-dqr">このQRを印刷</button>
-      </div>
-    </aside>
 
-    <div class="detail-main">
-      <div class="toolbar">
-        <button class="primary" id="btn-detail-in">入庫</button>
-        <button class="accent"  id="btn-detail-out">出庫</button>
-        <span class="spacer"></span>
-        <button class="ghost admin-only" id="btn-detail-edit">編集</button>
-      </div>
+        <!-- 詳細 -->
+        <section id="view-item-detail" class="view">
+          <div class="detail-wrap">
+            <aside class="detail-side">
+              <button class="ghost" id="btn-back-items">← 戻る</button>
+              <div class="detail-card">
+                <div class="thumb" id="d-thumb">📦</div>
+                <div class="title" id="d-name">-</div>
+                <div class="muted" id="d-code">-</div>
+                <div class="muted">価格: <b id="d-price">-</b></div>
+              </div>
+              <div class="detail-card">
+                <div>初期在庫: <b id="d-init">0</b></div>
+                <div>入庫合計: <b id="d-in">0</b></div>
+                <div>出庫合計: <b id="d-out">0</b></div>
+                <div>現在在庫: <b id="d-stock">0</b></div>
+                <div>下限在庫: <b id="d-min">0</b></div>
+              </div>
+              <div class="detail-card">
+                <div id="d-qr"></div>
+                <button class="primary" id="btn-print-dqr">このQRを印刷</button>
+              </div>
+            </aside>
 
-      <div class="card">
-        <h3>月次入出庫</h3>
-        <canvas id="detailChart" height="120"></canvas>
-      </div>
+            <div class="detail-main">
+              <div class="toolbar">
+                <button class="primary" id="btn-detail-in">入庫</button>
+                <button class="accent"  id="btn-detail-out">出庫</button>
+                <span class="spacer"></span>
+                <button class="ghost admin-only" id="btn-detail-edit">編集</button>
+              </div>
 
-      <div class="card">
-        <h3>最近の履歴</h3>
-        <table class="table compact" id="detail-history">
-          <thead><tr><th>日時</th><th>ユーザー</th><th>数量</th><th>単位</th><th>種別</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</section>
+              <div class="card">
+                <h3>月次入出庫</h3>
+                <canvas id="detailChart" height="120"></canvas>
+              </div>
+
+              <div class="card">
+                <h3>最近の履歴</h3>
+                <table class="table compact" id="detail-history">
+                  <thead><tr><th>日時</th><th>ユーザー</th><th>数量</th><th>単位</th><th>種別</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <!-- ユーザー -->
         <section id="view-users" class="view">
@@ -225,9 +207,7 @@
           </div>
           <table id="users-table">
             <thead>
-              <tr>
-                <th>名前</th><th>ID</th><th>役割</th><th>QR</th>
-              </tr>
+              <tr><th>名前</th><th>ID</th><th>役割</th><th>QR</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -253,7 +233,7 @@
           </table>
         </section>
 
-        <!-- 部品一覧（QR 印刷） -->
+        <!-- 部品（QR印刷） -->
         <section id="view-parts" class="view">
           <div class="toolbar">
             <button id="btn-build-parts-qr" class="primary">QR を生成</button>
@@ -273,9 +253,7 @@
           </div>
           <table id="history-table">
             <thead>
-              <tr>
-                <th>日時</th><th>ユーザー</th><th>商品</th><th>コード</th><th>数量</th><th>単位</th><th>種別</th>
-              </tr>
+              <tr><th>日時</th><th>ユーザー</th><th>商品</th><th>コード</th><th>数量</th><th>単位</th><th>種別</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -287,9 +265,7 @@
   <!-- Dialogs -->
   <dialog id="dlg-item">
     <form method="dialog">
-        <!-- di awal form dialog -->
-<button type="button" class="dlg-close" aria-label="閉じる"
-        onclick="this.closest('dialog').close()">&times;</button>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()">&times;</button>
       <h3>新規商品</h3>
       <label>商品名<input id="dlg-item-name" required></label>
       <label>コード<input id="dlg-item-code" required></label>
@@ -299,61 +275,48 @@
       <menu>
         <button value="cancel">キャンセル</button>
         <button id="dlg-item-ok" value="ok" class="primary">作成</button>
-      
-
       </menu>
     </form>
   </dialog>
 
   <dialog id="dlg-user">
     <form method="dialog">
-        <!-- di awal form dialog -->
-<button type="button" class="dlg-close" aria-label="閉じる"
-        onclick="this.closest('dialog').close()">&times;</button>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()">&times;</button>
       <h3>新規ユーザー</h3>
       <label>名前<input id="dlg-user-name" required></label>
       <label>ID<input id="dlg-user-id" required></label>
       <menu>
         <button value="cancel">キャンセル</button>
         <button id="dlg-user-ok" value="ok" class="primary">作成</button>
-      
-
       </menu>
     </form>
   </dialog>
-<!-- ログイン（ID/パス） -->
-<dialog id="dlg-pass-login">
-  <form method="dialog">
-    <!-- di awal form dialog -->
-<button type="button" class="dlg-close" aria-label="閉じる"
-        onclick="this.closest('dialog').close()">&times;</button>
 
-    <h3>ログイン</h3>
-    <label>ユーザーID<input id="pl-id" required></label>
-    <label>パスコード<input id="pl-pass" type="password" required></label>
-    <menu>
-      <button value="cancel">キャンセル</button>
-      <button id="pl-ok" value="ok" class="primary">ログイン</button>
-      
-    </menu>
-  </form>
-</dialog>
+  <!-- ログイン（ID+PIN） -->
+  <dialog id="dlg-pass-login">
+    <form method="dialog">
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()">&times;</button>
+      <h3>ログイン</h3>
+      <label>ユーザーID<input id="pl-id" required></label>
+      <label>パスコード<input id="pl-pass" type="password" required></label>
+      <menu>
+        <button value="cancel">キャンセル</button>
+        <button id="pl-ok" value="ok" class="primary">ログイン</button>
+      </menu>
+    </form>
+  </dialog>
 
-  
-  <!-- QRログイン（カメラ） -->
-<dialog id="dlg-login-qr">
-  <form method="dialog">
-      <!-- di awal form dialog -->
-<button type="button" class="dlg-close" aria-label="閉じる"
-        onclick="this.closest('dialog').close()">&times;</button>
-    <h3>QRログイン</h3>
-    <div id="login-scanner" class="scanner"></div>
-    <div class="muted" style="margin-top:8px;">ユーザーQRをかざしてください</div>
-    <menu>
-      <button value="cancel">閉じる</button>
-    </menu>
-  </form>
-</dialog>
-
+  <!-- QRログイン -->
+  <dialog id="dlg-login-qr">
+    <form method="dialog">
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()">&times;</button>
+      <h3>QRログイン</h3>
+      <div id="login-scanner" class="scanner"></div>
+      <div class="muted" style="margin-top:8px;">ユーザーQRをかざしてください</div>
+      <menu>
+        <button value="cancel">閉じる</button>
+      </menu>
+    </form>
+  </dialog>
 </body>
 </html>
