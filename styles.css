@@ -68,3 +68,27 @@ dialog menu{display:flex;gap:8px;justify-content:center;margin-top:10px}
 @media (max-width:480px){
   .scanner{height:260px;min-width:260px}
 }
+html { font-size: 14px; }            /* font sedikit lebih kecil */
+:root{
+  --primary:#2563eb; --accent:#f97316; --surface:#ffffff; --muted:#6b7280;
+  --bg:#f6f7fb; --blue:#0f172a; --card: #ffffff;
+}
+body.light { background: var(--bg); color:#111; }
+.topbar .ghost { padding:.5rem .8rem; }
+.table.compact td, .table.compact th { padding:.5rem .6rem; }
+
+.detail-wrap{ display:grid; grid-template-columns: 280px 1fr; gap:16px; }
+.detail-side .detail-card{ background:var(--card); border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.detail-side .thumb{ font-size:42px; }
+.detail-side .title{ font-weight:700; font-size:1.1rem; }
+.detail-main .card{ background:var(--card); border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.toolbar{ display:flex; gap:8px; align-items:center; }
+.toolbar .spacer{ flex:1; }
+
+/* smartphone */
+@media (max-width: 920px){
+  html{ font-size: 13px; }
+  .layout{ grid-template-columns: 64px 1fr; }      /* sidebar mengecil */
+  .detail-wrap{ grid-template-columns: 1fr; }
+  .topbar .search{ display:none; }
+}
