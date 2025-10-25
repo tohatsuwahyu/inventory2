@@ -228,6 +228,11 @@ qs('#btn-commit')?.addEventListener('click', async()=>{
     type: qs('#type').value
   };
   if(!payload.code || !payload.qty){ alert('商品QRと数量は必須です'); return; }
+  // 🔒 BATASAN: keluar (OUT) wajib login
+  if (payload.type === 'OUT' && !state.currentUser) {
+    alert('出庫はログインが必要です');
+    return;
+  }
   try{
     await api('log', { method:'POST', body: payload });
     qs('#commit-status').textContent = '記録しました';
