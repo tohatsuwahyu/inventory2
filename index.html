@@ -55,9 +55,10 @@
     <section class="content">
       <header class="topbar">
         <input class="search" placeholder="検索… (Ctrl+/)" />
-        <div class="top-actions">
+   <div class="top-actions">
   <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
   <button id="btn-login-qr" class="ghost">QRログイン</button>
+  <button id="btn-login-pass" class="ghost">ログイン</button>
   <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
   <button id="btn-open-in-top" class="primary">入庫</button>
   <button id="btn-open-out-top" class="accent">出庫</button>
@@ -156,10 +157,10 @@
           </div>
           <table id="items-table">
             <thead>
-              <tr>
-                <th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>QR</th>
-              </tr>
-            </thead>
+  <tr>
+    <th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>操作</th>
+  </tr>
+</thead>
             <tbody></tbody>
           </table>
 
@@ -169,6 +170,53 @@
             <button id="btn-print-qr">印刷</button>
           </div>
         </section>
+<!-- ========= DETAIL BARANG ========= -->
+<section id="view-item-detail" class="view">
+  <div class="detail-wrap">
+    <aside class="detail-side">
+      <button class="ghost" id="btn-back-items">← 戻る</button>
+      <div class="detail-card">
+        <div class="thumb" id="d-thumb">📦</div>
+        <div class="title" id="d-name">-</div>
+        <div class="muted" id="d-code">-</div>
+        <div class="muted">価格: <b id="d-price">-</b></div>
+      </div>
+      <div class="detail-card">
+        <div>初期在庫: <b id="d-init">0</b></div>
+        <div>入庫合計: <b id="d-in">0</b></div>
+        <div>出庫合計: <b id="d-out">0</b></div>
+        <div>現在在庫: <b id="d-stock">0</b></div>
+        <div>下限在庫: <b id="d-min">0</b></div>
+      </div>
+      <div class="detail-card">
+        <div id="d-qr"></div>
+        <button class="primary" id="btn-print-dqr">このQRを印刷</button>
+      </div>
+    </aside>
+
+    <div class="detail-main">
+      <div class="toolbar">
+        <button class="primary" id="btn-detail-in">入庫</button>
+        <button class="accent"  id="btn-detail-out">出庫</button>
+        <span class="spacer"></span>
+        <button class="ghost admin-only" id="btn-detail-edit">編集</button>
+      </div>
+
+      <div class="card">
+        <h3>月次入出庫</h3>
+        <canvas id="detailChart" height="120"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>最近の履歴</h3>
+        <table class="table compact" id="detail-history">
+          <thead><tr><th>日時</th><th>ユーザー</th><th>数量</th><th>単位</th><th>種別</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
 
         <!-- ユーザー -->
         <section id="view-users" class="view">
@@ -263,6 +311,18 @@
       </menu>
     </form>
   </dialog>
+<!-- ログイン（ID/パス） -->
+<dialog id="dlg-pass-login">
+  <form method="dialog">
+    <h3>ログイン</h3>
+    <label>ユーザーID<input id="pl-id" required></label>
+    <label>パスコード<input id="pl-pass" type="password" required></label>
+    <menu>
+      <button value="cancel">キャンセル</button>
+      <button id="pl-ok" value="ok" class="primary">ログイン</button>
+    </menu>
+  </form>
+</dialog>
 
   <dialog id="dlg-login">
     <form method="dialog">
