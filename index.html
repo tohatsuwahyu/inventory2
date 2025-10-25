@@ -5,25 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>在庫管理（QR）</title>
 
+  <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="print.css" media="print" />
-  <link rel="icon" type="image/png" href="/assets/tsh.png">
+  <link rel="icon" type="image/png" href="assets/tsh.png">
 
-  <!-- ライブラリ -->
+  <!-- Libs -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <script src="https://unpkg.com/html5-qrcode" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="qrlib.js" defer></script>
 
   <script>
     /* ▶ 設定（メニューに出さない）：必ずあなたのURLに置き換え */
     window.CONFIG = {
-      BASE_URL: 'https://script.google.com/macros/s/AKfycbwQdJUFnQNglb4PNRFulDaXnmdatFqPI2hw0oSxJgUKrNV0i7BuGzh-mgN2ViuyzdsCPg/exec',   // 例: https://script.google.com/macros/s/AKfycb.../exec
+      BASE_URL: 'https://script.google.com/macros/s/AKfycbwQdJUFnQNglb4PNRFulDaXnmdatFqPI2hw0oSxJgUKrNV0i7BuGzh-mgN2ViuyzdsCPg/exec,   // 例: https://script.google.com/macros/s/AKfycb.../exec
       API_KEY : 'supersecret123'                         // 半角英数
     };
   </script>
@@ -36,7 +37,7 @@
         <span>在庫管理</span>
       </div>
 
-      <nav class="sb-nav">
+      <nav class="sb-nav" id="sidebar-nav">
         <button class="sb-link active" data-view="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></button>
         <button class="sb-link" data-view="inout"><span class="icon">🔄</span><span>入出庫</span></button>
         <button class="sb-link" data-view="stocktake"><span class="icon">🧾</span><span>棚卸</span></button>
@@ -51,20 +52,19 @@
         <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
       </nav>
 
-      <div class="sb-foot">JP • v1.0</div>
+      <div class="sb-foot">JP • v1.1</div>
     </aside>
 
     <section class="content">
       <header class="topbar">
         <input class="search" placeholder="検索… (Ctrl+/)" />
         <div class="top-actions">
-  <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
-  <button id="btn-login" class="ghost">ログイン</button>
-  <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
-  <button id="btn-open-in-top" class="primary">入庫</button>
-  <button id="btn-open-out-top" class="accent">出庫</button>
-</div>
-
+          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
+          <button id="btn-login" class="ghost">ログイン</button>
+          <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
+          <button id="btn-open-in-top" class="primary">入庫</button>
+          <button id="btn-open-out-top" class="accent">出庫</button>
+        </div>
       </header>
 
       <main id="app">
@@ -76,13 +76,20 @@
               <ul id="low-stock-list"></ul>
             </div>
             <div class="card">
-              <h3>本日の入出庫</h3>
-              <div id="today-summary"></div>
+              <h3>月次入出庫サマリー</h3>
+              <canvas id="monthlyChart" height="140"></canvas>
             </div>
             <div class="card">
               <h3>クイック操作</h3>
               <button id="btn-open-in" class="primary">入庫</button>
               <button id="btn-open-out" class="accent">出庫</button>
+              <div class="muted" style="margin-top:12px;">
+                <div>品目数：<b id="kpi-items">0</b></div>
+                <div>総在庫：<b id="kpi-stock">0</b></div>
+                <div>在庫下限未満：<b id="kpi-low" style="color:var(--accent)">0</b> 件</div>
+              </div>
+              <h4 style="margin-top:12px;">最近の履歴</h4>
+              <ul id="recent5" class="muted"></ul>
             </div>
           </div>
         </section>
@@ -195,7 +202,7 @@
           </div>
         </section>
 
-        <!-- 在庫（閲覧＋出力） -->
+        <!-- 在庫 -->
         <section id="view-stock" class="view">
           <div class="toolbar">
             <button id="btn-export-items-2">CSV エクスポート</button>
@@ -267,18 +274,17 @@
       </menu>
     </form>
   </dialog>
-  <dialog id="dlg-login">
-  <form method="dialog">
-    <h3>ログイン</h3>
-    <label>ユーザーID<input id="login-id" required placeholder="例: ADMIN001"></label>
-    <menu>
-      <button value="cancel">キャンセル</button>
-      <button id="dlg-login-ok" value="ok" class="primary">ログイン</button>
-    </menu>
-  </form>
-</dialog>
 
-<script src="qrlib.js" defer></script>
+  <dialog id="dlg-login">
+    <form method="dialog">
+      <h3>ログイン</h3>
+      <label>ユーザーID<input id="login-id" required placeholder="例: ADMIN001"></label>
+      <menu>
+        <button value="cancel">キャンセル</button>
+        <button id="dlg-login-ok" value="ok" class="primary">ログイン</button>
+      </menu>
+    </form>
+  </dialog>
 
   <script src="app.js" defer></script>
 </body>
