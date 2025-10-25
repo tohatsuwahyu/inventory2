@@ -1,28 +1,38 @@
+// ---------- Guard ----------
+if (!window.CONFIG || !CONFIG.BASE_URL) {
+  alert('CONFIG missing: pastikan config.js dimuat sebelum app.js');
+  throw new Error('CONFIG missing');
+}
+
 // ---------- Utils ----------
-const qs = (s, el=document) => el.querySelector(s);
+const qs  = (s, el=document) => el.querySelector(s);
 const qsa = (s, el=document) => [...el.querySelectorAll(s)];
 const state = { items: [], users: [], currentUser: null, stocktake: [] };
 
-function isAdmin(){ return state.currentUser?.role === 'admin'; }
-function isRegistered(){ return !!state.currentUser && !!state.users.find(u=>u.id === state.currentUser.id); }
+const isAdmin = () => state.currentUser?.role === 'admin';
 
 function updateWho(){
   const el = qs('#who');
   if(!el) return;
-  if(!state.currentUser) el.textContent = '未ログイン';
-  else el.textContent = `${state.currentUser.name || state.currentUser.id}（${state.currentUser.role || 'viewer'}）`;
+  el.textContent = state.currentUser
+    ? `${state.currentUser.name || state.currentUser.id}（${state.currentUser.role || 'viewer'}）`
+    : '未ログイン';
 }
 function applyRole(){
+  // admin-only toggle
   qsa('.admin-only').forEach(el => el.style.display = isAdmin() ? '' : 'none');
-  // 入出庫 tidak terkunci
-  ['qty','unit','type','btn-commit'].forEach(id=>{ const el=qs('#'+id); if(el) el.disabled=false; });
+  // 入出庫 tidak dikunci
+  ['qty','unit','type','btn-commit'].forEach(id=>{
+    const el = qs('#'+id);
+    if(el) el.disabled = false;
+  });
 }
 
-
-// ---------- API helper (simple request: no preflight) ----------
+// ---------- API helper (tanpa preflight) ----------
 async function api(path, { method='GET', body } = {}){
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
+
   if (method === 'GET'){
     const res = await fetch(url);
     if(!res.ok) throw new Error(await res.text());
@@ -41,13 +51,16 @@ async function api(path, { method='GET', body } = {}){
 function switchView(id){
   const view = qs(`#view-${id}`);
   if(!view){ console.warn('view not found:', id); return; }
-  qsa('.view').forEach(v=>v.classList.remove('active')); view.classList.add('active');
+  qsa('.view').forEach(v=>v.classList.remove('active'));
+  view.classList.add('active');
   qsa('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
-  if(id === 'inout'){ stopScanners().finally(()=> setTimeout(startUserScanner, 150)); } else { stopScanners(); }
+
+  if(id==='inout'){ stopItemScanner().finally(()=> setTimeout(startItemScanner,150)); }
+  else { stopItemScanner(); }
 }
 function bindSidebar(){
   qsa('.sb-link').forEach(b=>{
-    b.addEventListener('click',()=>switchView(b.dataset.view));
+    b.addEventListener('click', ()=> switchView(b.dataset.view));
   });
 }
 
@@ -57,43 +70,28 @@ async function bootstrap(){
     bindSidebar();
     const [items, users] = await Promise.all([ api('items'), api('users') ]);
     state.items = items; state.users = users;
-    renderItems(); renderUsers(); renderDashboard(); renderStock(); buildQRSheets(); buildParts(); buildUserQRSheets();
+
+    renderItems(); renderUsers(); renderDashboard(); renderStock();
+    buildQRSheets(); buildParts(); buildUserQRSheets();
+
     applyRole(); updateWho();
-  }catch(e){ console.error(e); alert('初期化に失敗しました: '+e.message); }
+
+    // Top buttons
+    qs('#btn-open-in-top')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
+    qs('#btn-open-out-top')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+    qs('#btn-open-in')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
+    qs('#btn-open-out')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+  }catch(e){
+    console.error(e); alert('初期化に失敗しました: '+e.message);
+  }
 }
-window.addEventListener('DOMContentLoaded', ()=>{
-  bootstrap();
-
-  // top buttons
-  qs('#btn-open-in-top')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
-  qs('#btn-open-out-top')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
-  qs('#btn-open-in')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
-  qs('#btn-open-out')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
-
-  // login dialog
-  qs('#btn-login')?.addEventListener('click', ()=> qs('#dlg-login').showModal());
-  qs('#dlg-login-ok')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    const id = qs('#login-id').value.trim();
-    const u = state.users.find(x=>x.id===id);
-    if(!u){ alert('ユーザーが見つかりません'); return; }
-    state.currentUser = {...u};
-    qs('#dlg-login').close();
-    updateWho(); applyRole();
-    qs('#btn-login').style.display='none'; qs('#btn-logout').style.display='';
-  });
-  qs('#btn-logout')?.addEventListener('click', ()=>{
-    state.currentUser = null; updateWho(); applyRole(); stopScanners();
-    qs('#btn-login').style.display=''; qs('#btn-logout').style.display='none';
-  });
-});
+window.addEventListener('DOMContentLoaded', bootstrap);
 
 // ---------- Dashboard ----------
 let monthlyChart;
 async function buildMonthlyChart(){
-  // ambil 12 bulan terakhir dari backend
   const series = await api('statsMonthlySeries', { method:'GET' });
-  const labels = series.map(r=>r.month);
+  const labels  = series.map(r=>r.month);
   const inData  = series.map(r=>r.in);
   const outData = series.map(r=>r.out);
 
@@ -105,46 +103,49 @@ async function buildMonthlyChart(){
     data: {
       labels,
       datasets: [
-        { type:'bar', label:'入庫', data: inData, borderWidth:1, backgroundColor:'#2563eb' },
+        { type:'bar', label:'入庫', data: inData,  borderWidth:1, backgroundColor:'#2563eb' },
         { type:'bar', label:'出庫', data: outData, borderWidth:1, backgroundColor:'#f97316' },
-        { type:'line', label:'差分(入-出)', data: inData.map((v,i)=>v - outData[i]), borderColor:'#10b981', fill:false, tension:.3 }
+        { type:'line',label:'差分(入-出)', data: inData.map((v,i)=>v-outData[i]), borderColor:'#10b981', fill:false, tension:.3 }
       ]
     },
-    options: {
-      responsive:true,
-      scales:{ y:{ beginAtZero:true } },
-      plugins:{ legend:{ position:'bottom' } }
-    }
+    options: { responsive:true, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ position:'bottom' } } }
   });
 }
-
 async function refreshTodayStats(){
-  // 5 transaksi terakhir
   const last = await api('history', { method:'POST', body:{} });
   const recent5 = last.slice(-5).reverse();
-  const ul5 = qs('#recent5'); if(ul5){
-    ul5.innerHTML = '';
+  const ul5 = qs('#recent5');
+  if(ul5){
+    ul5.innerHTML='';
     recent5.forEach(r=>{
-      const li = document.createElement('li');
+      const li=document.createElement('li');
       li.textContent = `${r.timestamp}｜${r.type==='IN'?'入':'出'}｜${r.name||''}｜${r.qty}${r.unit||''}`;
       ul5.appendChild(li);
     });
   }
 }
-
 function renderDashboard(){
-  const low = state.items.filter(it => Number(it.min||0) > 0 && Number(it.stock||0) <= Number(it.min));
-  const ul = qs('#low-stock-list'); if(ul){ ul.innerHTML=''; low.forEach(it=>{ const li=document.createElement('li'); li.textContent=`${it.name}（${it.code}） 残:${it.stock}`; li.style.color='var(--accent)'; ul.appendChild(li); }); }
-  const badge = qs('#badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
-
-  // KPI kecil
+  const low = state.items.filter(it => Number(it.min||0)>0 && Number(it.stock||0)<=Number(it.min));
+  const ul = qs('#low-stock-list');
+  if(ul){
+    ul.innerHTML='';
+    low.forEach(it=>{
+      const li=document.createElement('li');
+      li.textContent=`${it.name}（${it.code}） 残:${it.stock}`;
+      li.style.color='var(--accent)';
+      ul.appendChild(li);
+    });
+  }
+  const badge = qs('#badge-low');
+  if(badge){ badge.textContent = low.length; badge.style.display = low.length?'inline-flex':'none'; }
   qs('#kpi-items').textContent = state.items.length;
-  qs('#kpi-stock').textContent = state.items.reduce((a,b)=>a + Number(b.stock||0), 0);
+  qs('#kpi-stock').textContent = state.items.reduce((a,b)=>a+Number(b.stock||0),0);
   qs('#kpi-low').textContent   = low.length;
 
   refreshTodayStats();
   buildMonthlyChart();
 }
+
 // ===== QR Login =====
 let loginScanner;
 async function startLoginScanner(){
@@ -169,27 +170,16 @@ function onLoginScan(text){
   qs('#dlg-login-qr').close();
   stopLoginScanner();
 }
-
 qs('#btn-login-qr')?.addEventListener('click', ()=>{
   qs('#dlg-login-qr').showModal();
-  setTimeout(startLoginScanner, 120);
+  setTimeout(startLoginScanner,120);
 });
 qs('#btn-logout')?.addEventListener('click', ()=>{
   state.currentUser = null; updateWho(); applyRole();
 });
 
-// ---------- QR Scanners (flow: user → item) ----------
-let userScanner, itemScanner;
-async function startUserScanner(){
-  try{
-    const cams = await Html5Qrcode.getCameras();
-    const id = cams?.[0]?.id; if(!id) return;
-    const conf = { fps:10, qrbox:{width:250, height:250} };
-    userScanner = new Html5Qrcode('user-scanner');
-    await userScanner.start({deviceId:{exact:id}}, conf, onUserScan);
-  }catch(e){ console.warn('user scanner', e); }
-}
-let itemScanner;
+// ---------- Item Scanner saja ----------
+let itemScanner; // <— hanya sekali!
 async function startItemScanner(){
   try{
     const cams = await Html5Qrcode.getCameras();
@@ -201,61 +191,59 @@ async function startItemScanner(){
 }
 async function stopItemScanner(){
   try{ await itemScanner?.stop(); itemScanner?.clear(); }catch(_){}
-  itemScanner=null;
+  itemScanner = null;
 }
 function onItemScan(text){
   try{ const obj=JSON.parse(text); if(obj.t==='item') text=obj.code; }catch(_){}
   qs('#item-code').value = text;
   const it = state.items.find(i=>i.code===text);
-  qs('#item-detail').textContent = it ? `${it.name} / 価格: ${it.price||'-'} / 在庫: ${it.stock}` : '未登録商品';
-}
-
-function switchView(id){
-  const view = qs(`#view-${id}`); if(!view) return;
-  qsa('.view').forEach(v=>v.classList.remove('active')); view.classList.add('active');
-  qsa('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
-  if(id==='inout'){ stopItemScanner().finally(()=> setTimeout(startItemScanner, 150)); }
-  else { stopItemScanner(); }
+  qs('#item-detail').textContent = it
+    ? `${it.name} / 価格: ${it.price||'-'} / 在庫: ${it.stock}`
+    : '未登録商品';
 }
 
 // ---------- Commit IN/OUT ----------
-qs('#btn-commit')?.addEventListener('click', async()=>{
+qs('#btn-commit')?.addEventListener('click', async ()=>{
   const payload = {
-    userId: state.currentUser?.id || '',            // boleh kosong
-    code: qs('#item-code').value.trim(),
-    qty: Number(qs('#qty').value||0),
-    unit: qs('#unit').value,
-    type: qs('#type').value
+    userId: state.currentUser?.id || '',
+    code  : qs('#item-code').value.trim(),
+    qty   : Number(qs('#qty').value||0),
+    unit  : qs('#unit').value,
+    type  : qs('#type').value
   };
-  if(!payload.code || !payload.qty){ alert('商品QRと数量は必須です'); return; }
-  // 🔒 BATASAN: keluar (OUT) wajib login
-  if (payload.type === 'OUT' && !state.currentUser) {
+  if(!payload.code || !payload.qty){
+    alert('商品QRと数量は必須です');
+    return;
+  }
+  // OUT wajib login
+  if(payload.type==='OUT' && !state.currentUser){
     alert('出庫はログインが必要です');
     return;
   }
+
   try{
     await api('log', { method:'POST', body: payload });
     qs('#commit-status').textContent = '記録しました';
-    // refresh KPI minimum
     state.items = await api('items');
     renderDashboard(); renderStock(); renderItems();
-    // autoclose? gunakan query ?autoclose=1
+
     const ac = new URLSearchParams(location.search).get('autoclose');
-    if(ac==='1'){ setTimeout(()=>window.close(), 400); }
-    else { setTimeout(()=>switchView('dashboard'), 300); }
+    if(ac==='1'){ setTimeout(()=>window.close(),400); }
+    else { setTimeout(()=>switchView('dashboard'),300); }
   }catch(e){ alert('記録失敗: '+e.message); }
 });
-
 
 // ---------- Items ----------
 function renderItems(){
   const tbd = qs('#items-table tbody'); if(!tbd) return; tbd.innerHTML='';
   const q = (qs('#item-search')?.value || '').toLowerCase();
-  state.items.filter(it=>!q || `${it.name}${it.code}`.toLowerCase().includes(q)).forEach(it=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${it.name}</td><td>${it.code}</td><td>${it.price||''}</td><td>${it.stock||0}</td><td>${it.min||0}</td><td><button data-code="${it.code}" class="btn-gen-qr accent">QR</button></td>`;
-    tbd.appendChild(tr);
-  });
+  state.items
+    .filter(it=>!q || `${it.name}${it.code}`.toLowerCase().includes(q))
+    .forEach(it=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${it.name}</td><td>${it.code}</td><td>${it.price||''}</td><td>${it.stock||0}</td><td>${it.min||0}</td><td><button data-code="${it.code}" class="btn-gen-qr accent">QR</button></td>`;
+      tbd.appendChild(tr);
+    });
   qsa('.btn-gen-qr').forEach(b=> b.onclick = ()=> addItemQR(b.dataset.code));
 }
 qs('#item-search')?.addEventListener('input', renderItems);
@@ -275,7 +263,8 @@ qs('#dlg-item-ok')?.addEventListener('click', async(e)=>{
   try{
     await api('addItem',{method:'POST', body});
     qs('#dlg-item').close();
-    state.items = await api('items'); renderItems(); renderDashboard(); renderStock(); buildQRSheets(); buildParts();
+    state.items = await api('items');
+    renderItems(); renderDashboard(); renderStock(); buildQRSheets(); buildParts();
   }catch(err){ alert('作成失敗: '+err.message); }
 });
 
@@ -283,12 +272,11 @@ qs('#dlg-item-ok')?.addEventListener('click', async(e)=>{
 function renderUsers(){
   const tbd = qs('#users-table tbody'); if(!tbd) return; tbd.innerHTML='';
   state.users.forEach(u=>{
-    const tr = document.createElement('tr');
+    const tr=document.createElement('tr');
     tr.innerHTML = `<td>${u.name}</td><td>${u.id}</td><td>${u.role||'user'}</td><td><button data-id="${u.id}" class="btn-user-qr primary">QR</button></td>`;
     tbd.appendChild(tr);
   });
   qsa('.btn-user-qr').forEach(b=> b.onclick = ()=> addUserQR(b.dataset.id));
-
   buildUserQRSheets();
 }
 qs('#btn-add-user')?.addEventListener('click', ()=>{
@@ -314,17 +302,17 @@ async function loadHistory(){
   const rows = await api('history', { method:'POST', body: params });
   const tbd = qs('#history-table tbody'); tbd.innerHTML='';
   rows.forEach(r=>{
-    const tr = document.createElement('tr');
+    const tr=document.createElement('tr');
     tr.innerHTML = `<td>${r.timestamp}</td><td>${r.userName||r.userId}</td><td>${r.name||''}</td><td>${r.code||''}</td><td>${r.qty}</td><td>${r.unit}</td><td>${r.type}</td>`;
     tbd.appendChild(tr);
   });
 }
 
-// ---------- Stock (view) ----------
+// ---------- Stock ----------
 function renderStock(){
   const tbd = qs('#stock-table tbody'); if(!tbd) return; tbd.innerHTML='';
   state.items.forEach(it=>{
-    const tr = document.createElement('tr');
+    const tr=document.createElement('tr');
     tr.innerHTML = `<td>${it.name}</td><td>${it.code}</td><td>${it.stock||0}</td><td>${it.min||0}</td>`;
     tbd.appendChild(tr);
   });
