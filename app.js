@@ -1,25 +1,3 @@
-// ---- Login/Logout (manual) ----
-qs('#btn-login')?.addEventListener('click', ()=> qs('#dlg-login').showModal());
-qs('#dlg-login-ok')?.addEventListener('click', (e)=>{
-  e.preventDefault();
-  const id = qs('#login-id').value.trim();
-  if(!id){ alert('ユーザーIDを入力してください'); return; }
-  const u = state.users.find(x=>x.id===id);
-  if(!u){ alert('ユーザーが見つかりません（先にQRスキャンまたは管理者に登録依頼）'); return; }
-  state.currentUser = {...u};
-  qs('#dlg-login').close();
-  updateWho(); applyRole();
-  qs('#btn-login').style.display='none';
-  qs('#btn-logout').style.display='';
-});
-qs('#btn-logout')?.addEventListener('click', ()=>{
-  state.currentUser = null;
-  updateWho(); applyRole();
-  stopScanners();
-  qs('#btn-login').style.display='';
-  qs('#btn-logout').style.display='none';
-});
-
 // ---------- Utils ----------
 const qs = (s, el=document) => el.querySelector(s);
 const qsa = (s, el=document) => [...el.querySelectorAll(s)];
@@ -71,78 +49,81 @@ function switchView(id){
   qsa('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
   if(id === 'inout'){ stopScanners().finally(()=> setTimeout(startUserScanner, 150)); } else { stopScanners(); }
 }
-qsa('.sb-link').forEach(b=> b.addEventListener('click',()=>switchView(b.dataset.view)));
-qs('#btn-open-in-top').onclick  = ()=>{ switchView('inout'); qs('#type').value='IN';  };
-qs('#btn-open-out-top').onclick = ()=>{ switchView('inout'); qs('#type').value='OUT'; };
-qs('#btn-open-in')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
-qs('#btn-open-out')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+function bindSidebar(){
+  qsa('.sb-link').forEach(b=>{
+    b.addEventListener('click',()=>switchView(b.dataset.view));
+  });
+}
 
 // ---------- Bootstrap ----------
 async function bootstrap(){
   try{
+    bindSidebar();
     const [items, users] = await Promise.all([ api('items'), api('users') ]);
     state.items = items; state.users = users;
-    renderItems(); renderUsers(); renderDashboard(); renderStock(); buildQRSheets(); buildParts();
+    renderItems(); renderUsers(); renderDashboard(); renderStock(); buildQRSheets(); buildParts(); buildUserQRSheets();
     applyRole(); updateWho();
   }catch(e){ console.error(e); alert('初期化に失敗しました: '+e.message); }
 }
-window.addEventListener('DOMContentLoaded', ()=>{ bootstrap(); });
+window.addEventListener('DOMContentLoaded', ()=>{
+  bootstrap();
+
+  // top buttons
+  qs('#btn-open-in-top')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
+  qs('#btn-open-out-top')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+  qs('#btn-open-in')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
+  qs('#btn-open-out')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+
+  // login dialog
+  qs('#btn-login')?.addEventListener('click', ()=> qs('#dlg-login').showModal());
+  qs('#dlg-login-ok')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const id = qs('#login-id').value.trim();
+    const u = state.users.find(x=>x.id===id);
+    if(!u){ alert('ユーザーが見つかりません'); return; }
+    state.currentUser = {...u};
+    qs('#dlg-login').close();
+    updateWho(); applyRole();
+    qs('#btn-login').style.display='none'; qs('#btn-logout').style.display='';
+  });
+  qs('#btn-logout')?.addEventListener('click', ()=>{
+    state.currentUser = null; updateWho(); applyRole(); stopScanners();
+    qs('#btn-login').style.display=''; qs('#btn-logout').style.display='none';
+  });
+});
 
 // ---------- Dashboard ----------
-function renderDashboard(){
-  const low = state.items.filter(it => Number(it.min||0)>0 && Number(it.stock||0) <= Number(it.min));
-  const ul = qs('#low-stock-list'); if(ul){ ul.innerHTML=''; low.forEach(it=>{ const li=document.createElement('li'); li.textContent=`${it.name}（${it.code}） 残:${it.stock}`; li.style.color='var(--accent)'; ul.appendChild(li); }); }
-  const badge = qs('#badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
-  qs('#today-summary') && (qs('#today-summary').textContent='最新の履歴は「履歴」タブで確認してください。');
+let monthlyChart;
+async function buildMonthlyChart(){
+  // ambil 12 bulan terakhir dari backend
+  const series = await api('statsMonthlySeries', { method:'GET' });
+  const labels = series.map(r=>r.month);
+  const inData  = series.map(r=>r.in);
+  const outData = series.map(r=>r.out);
+
+  const ctx = document.getElementById('monthlyChart');
+  if(!ctx) return;
+  monthlyChart?.destroy();
+  monthlyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { type:'bar', label:'入庫', data: inData, borderWidth:1, backgroundColor:'#2563eb' },
+        { type:'bar', label:'出庫', data: outData, borderWidth:1, backgroundColor:'#f97316' },
+        { type:'line', label:'差分(入-出)', data: inData.map((v,i)=>v - outData[i]), borderColor:'#10b981', fill:false, tension:.3 }
+      ]
+    },
+    options: {
+      responsive:true,
+      scales:{ y:{ beginAtZero:true } },
+      plugins:{ legend:{ position:'bottom' } }
+    }
+  });
 }
+
 async function refreshTodayStats(){
-  // ambil history hari ini saja
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth()+1).padStart(2,'0');
-  const dd = String(today.getDate()).padStart(2,'0');
-  const from = `${yyyy}-${mm}-${dd}`;
-  const to   = `${yyyy}-${mm}-${dd}`;
-
-  const rows = await api('history', { method:'POST', body:{ from, to } });
-  const inCount  = rows.filter(r=>r.type==='IN').length;
-  const outCount = rows.filter(r=>r.type==='OUT').length;
-
-  const card = qs('#view-dashboard .cards .card:nth-child(2)');
-  if(card){
-    card.innerHTML = `
-      <h3>本日の入出庫</h3>
-      <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <div class="pane"><div>入庫</div><div style="font-size:24px;font-weight:700;">${inCount}</div></div>
-        <div class="pane"><div>出庫</div><div style="font-size:24px;font-weight:700;">${outCount}</div></div>
-      </div>
-    `;
-  }
-
-  const recentCard = qs('#view-dashboard .cards .card:nth-child(3)');
-  if(recentCard){
-    const totalItems = state.items.length;
-    const totalStock = state.items.reduce((a,b)=>a + Number(b.stock||0), 0);
-    const low = state.items.filter(it=>Number(it.min||0)>0 && Number(it.stock||0)<=Number(it.min)).length;
-
-    recentCard.innerHTML = `
-      <h3>クイック操作</h3>
-      <button id="btn-open-in" class="primary">入庫</button>
-      <button id="btn-open-out" class="accent">出庫</button>
-      <div class="muted" style="margin-top:12px;">
-        <div>品目数：<b>${totalItems}</b></div>
-        <div>総在庫：<b>${totalStock}</b></div>
-        <div>在庫下限未満：<b style="color:var(--accent)">${low}</b> 件</div>
-      </div>
-      <h4 style="margin-top:12px;">最近の履歴</h4>
-      <ul id="recent5" class="muted"></ul>
-    `;
-    // bind tombol lagi
-    qs('#btn-open-in').onclick  = ()=>{ switchView('inout'); qs('#type').value='IN'; };
-    qs('#btn-open-out').onclick = ()=>{ switchView('inout'); qs('#type').value='OUT'; };
-  }
-
-  // 5 transaksi terakhir (tidak hanya hari ini)
+  // 5 transaksi terakhir
   const last = await api('history', { method:'POST', body:{} });
   const recent5 = last.slice(-5).reverse();
   const ul5 = qs('#recent5'); if(ul5){
@@ -159,68 +140,14 @@ function renderDashboard(){
   const low = state.items.filter(it => Number(it.min||0) > 0 && Number(it.stock||0) <= Number(it.min));
   const ul = qs('#low-stock-list'); if(ul){ ul.innerHTML=''; low.forEach(it=>{ const li=document.createElement('li'); li.textContent=`${it.name}（${it.code}） 残:${it.stock}`; li.style.color='var(--accent)'; ul.appendChild(li); }); }
   const badge = qs('#badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
-  refreshTodayStats(); // <-- tambahan
-}
-async function buildKPI(){
-  // 月次入出庫サマリー
-  const ym = new Date(); const y = ym.getFullYear(); const m = String(ym.getMonth()+1).padStart(2,'0');
-  const summary = await api('statsMonthly', { method:'GET' }); // default bulan ini
-  const card2 = document.querySelector('#view-dashboard .cards .card:nth-child(2)');
-  if(card2){
-    card2.innerHTML = `
-      <h3>本日の入出庫</h3>
-      <div style="display:flex; gap:12px;">
-        <div class="pane"><div>今月 入庫合計</div><div style="font-size:22px;font-weight:700;">${summary.in}</div></div>
-        <div class="pane"><div>今月 出庫合計</div><div style="font-size:22px;font-weight:700;">${summary.out}</div></div>
-      </div>
-    `;
-  }
 
-  // 高回転/低回転 TOP10（過去30日）
-  const movers = await api('statsMovers', { method:'GET' }); // default 30日
-  const recentCard = document.querySelector('#view-dashboard .cards .card:nth-child(3)');
-  if(recentCard){
-    const top = movers.top10.map(x=>`<li>${x.name||x.code}（${x.out+x.in}件）</li>`).join('');
-    const low = movers.low10.map(x=>`<li>${x.name||x.code}（${x.out+x.in}件）</li>`).join('');
-    recentCard.innerHTML = `
-      <h3>クイック操作</h3>
-      <button id="btn-open-in" class="primary">入庫</button>
-      <button id="btn-open-out" class="accent">出庫</button>
-      <div class="grid-2" style="margin-top:10px;">
-        <div class="pane"><b>高回転 TOP10（30日）</b><ol>${top||'<li>データなし</li>'}</ol></div>
-        <div class="pane"><b>低回転 TOP10（30日）</b><ol>${low||'<li>データなし</li>'}</ol></div>
-      </div>
-    `;
-    document.getElementById('btn-open-in').onclick  = ()=>{ switchView('inout'); document.getElementById('type').value='IN'; };
-    document.getElementById('btn-open-out').onclick = ()=>{ switchView('inout'); document.getElementById('type').value='OUT'; };
-  }
+  // KPI kecil
+  qs('#kpi-items').textContent = state.items.length;
+  qs('#kpi-stock').textContent = state.items.reduce((a,b)=>a + Number(b.stock||0), 0);
+  qs('#kpi-low').textContent   = low.length;
 
-  // 在庫回転率（Rolling 30/90日）＋ 死蔵在庫
-  const turn = await api('statsTurnover', { method:'GET' });
-  // (Opsional) tampilkan warning di「在庫アラート」
-  const ul = document.getElementById('low-stock-list');
-  if(ul){
-    // tampilkan juga dead stock
-    if(turn.dead && turn.dead.length){
-      const deadTitle = document.createElement('li');
-      deadTitle.textContent = '— 死蔵在庫（90日以上動きなし）—';
-      deadTitle.style.color = 'var(--muted)';
-      ul.appendChild(deadTitle);
-      turn.dead.slice(0,10).forEach(d=>{
-        const li = document.createElement('li');
-        li.textContent = `${d.name||d.code} / 在庫:${d.stock}`;
-        ul.appendChild(li);
-      });
-    }
-  }
-}
-
-function renderDashboard(){
-  const low = state.items.filter(it => Number(it.min||0) > 0 && Number(it.stock||0) <= Number(it.min));
-  const ul = document.getElementById('low-stock-list'); if(ul){ ul.innerHTML=''; low.forEach(it=>{ const li=document.createElement('li'); li.textContent=`${it.name}（${it.code}） 残:${it.stock}`; li.style.color='var(--accent)'; ul.appendChild(li); }); }
-  const badge = document.getElementById('badge-low'); if(badge){ badge.textContent = low.length; badge.style.display = low.length ? 'inline-flex' : 'none'; }
   refreshTodayStats();
-  buildKPI(); // <— panggil KPI tambahan
+  buildMonthlyChart();
 }
 
 // ---------- QR Scanners (flow: user → item) ----------
@@ -280,7 +207,7 @@ qs('#btn-commit')?.addEventListener('click', async()=>{
     await api('log', { method:'POST', body: payload });
     qs('#commit-status').textContent = '記録しました';
     state.items = await api('items');
-    renderItems(); renderStock(); renderDashboard(); buildQRSheets(); buildParts();
+    renderItems(); renderStock(); renderDashboard(); buildQRSheets(); buildParts(); buildUserQRSheets();
   }catch(e){ alert('記録失敗: '+e.message); }
 });
 
@@ -318,19 +245,16 @@ qs('#dlg-item-ok')?.addEventListener('click', async(e)=>{
 
 // ---------- Users ----------
 function renderUsers(){
-  const tbd = document.querySelector('#users-table tbody'); if(!tbd) return; tbd.innerHTML='';
+  const tbd = qs('#users-table tbody'); if(!tbd) return; tbd.innerHTML='';
   state.users.forEach(u=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.id}</td><td>${u.role||'user'}</td>
-                    <td><button data-id="${u.id}" class="btn-user-qr primary">QR</button></td>`;
+    tr.innerHTML = `<td>${u.name}</td><td>${u.id}</td><td>${u.role||'user'}</td><td><button data-id="${u.id}" class="btn-user-qr primary">QR</button></td>`;
     tbd.appendChild(tr);
   });
-  document.querySelectorAll('.btn-user-qr').forEach(b=> b.onclick = ()=> addUserQR(b.dataset.id));
+  qsa('.btn-user-qr').forEach(b=> b.onclick = ()=> addUserQR(b.dataset.id));
 
-  // <-- Tambahkan ini agar sheet QR otomatis terbangun
   buildUserQRSheets();
 }
-
 qs('#btn-add-user')?.addEventListener('click', ()=>{
   if(!isAdmin()){ alert('権限がありません（管理者のみ）'); return; }
   qs('#dlg-user').showModal();
@@ -405,34 +329,15 @@ function addUserQR(id){
   cell.appendChild(meta);
   qs('#user-qr-grid')?.appendChild(cell);
 }
-// Items → QR sheet
-function buildQRSheets(){
-  const grid = qs('#qr-grid'); if(!grid) return;
-  QRPrint.buildItemGrid(grid, state.items);
-}
-qs('#btn-print-qr')?.addEventListener('click', QRPrint.printA4);
+function buildQRSheets(){ const g = qs('#qr-grid'); if(!g) return; g.innerHTML=''; state.items.forEach(i=> addItemQR(i.code)); }
+qs('#btn-print-qr')?.addEventListener('click', ()=> window.print());
 
-// Users → QR sheet
-function buildUserQRSheets(){
-  const grid = qs('#user-qr-grid'); if(!grid) return;
-  QRPrint.buildUserGrid(grid, state.users);
-}
-qs('#btn-print-user-qr')?.addEventListener('click', QRPrint.printA4);
+function buildUserQRSheets(){ const grid = qs('#user-qr-grid'); if(!grid) return; QRPrint.buildUserGrid(grid, state.users); }
+qs('#btn-print-user-qr')?.addEventListener('click', ()=> window.print());
 
-// 部品一覧（全アイテム）
-function buildParts(){
-  const grid = qs('#parts-qr-grid'); if(!grid) return;
-  QRPrint.buildItemGrid(grid, state.items);
-}
-qs('#btn-build-parts-qr')?.addEventListener('click', buildParts);
-qs('#btn-print-parts-qr')?.addEventListener('click', QRPrint.printA4);
-
-
-function buildParts(){ const grid = qs('#parts-qr-grid'); if(!grid) return; grid.innerHTML=''; state.items.forEach(i=>{ const c=document.createElement('div'); c.className='qr-cell'; const b=document.createElement('div'); c.appendChild(b); new QRCode(b,{text:JSON.stringify({t:'item',code:i.code,name:i.name,price:i.price}),width:120,height:120}); const m=document.createElement('div'); m.innerHTML=`<div class="name">${i.name}</div><div>${i.code}</div>`; c.appendChild(m); grid.appendChild(c); }); }
+function buildParts(){ const grid = qs('#parts-qr-grid'); if(!grid) return; QRPrint.buildItemGrid(grid, state.items); }
 qs('#btn-build-parts-qr')?.addEventListener('click', buildParts);
 qs('#btn-print-parts-qr')?.addEventListener('click', ()=> window.print());
-
-qs('#btn-print-user-qr')?.addEventListener('click', ()=> window.print());
 
 // ---------- Export/Import from Items screen ----------
 qs('#btn-export-items')?.addEventListener('click', async()=>{
