@@ -287,6 +287,9 @@
   <!-- Dialogs -->
   <dialog id="dlg-item">
     <form method="dialog">
+        <!-- di awal form dialog -->
+<button type="button" class="dlg-close" aria-label="閉じる"
+        onclick="this.closest('dialog').close()">&times;</button>
       <h3>新規商品</h3>
       <label>商品名<input id="dlg-item-name" required></label>
       <label>コード<input id="dlg-item-code" required></label>
@@ -296,30 +299,42 @@
       <menu>
         <button value="cancel">キャンセル</button>
         <button id="dlg-item-ok" value="ok" class="primary">作成</button>
+      
+
       </menu>
     </form>
   </dialog>
 
   <dialog id="dlg-user">
     <form method="dialog">
+        <!-- di awal form dialog -->
+<button type="button" class="dlg-close" aria-label="閉じる"
+        onclick="this.closest('dialog').close()">&times;</button>
       <h3>新規ユーザー</h3>
       <label>名前<input id="dlg-user-name" required></label>
       <label>ID<input id="dlg-user-id" required></label>
       <menu>
         <button value="cancel">キャンセル</button>
         <button id="dlg-user-ok" value="ok" class="primary">作成</button>
+      
+
       </menu>
     </form>
   </dialog>
 <!-- ログイン（ID/パス） -->
 <dialog id="dlg-pass-login">
   <form method="dialog">
+    <!-- di awal form dialog -->
+<button type="button" class="dlg-close" aria-label="閉じる"
+        onclick="this.closest('dialog').close()">&times;</button>
+
     <h3>ログイン</h3>
     <label>ユーザーID<input id="pl-id" required></label>
     <label>パスコード<input id="pl-pass" type="password" required></label>
     <menu>
       <button value="cancel">キャンセル</button>
       <button id="pl-ok" value="ok" class="primary">ログイン</button>
+      
     </menu>
   </form>
 </dialog>
@@ -328,6 +343,9 @@
   <!-- QRログイン（カメラ） -->
 <dialog id="dlg-login-qr">
   <form method="dialog">
+      <!-- di awal form dialog -->
+<button type="button" class="dlg-close" aria-label="閉じる"
+        onclick="this.closest('dialog').close()">&times;</button>
     <h3>QRログイン</h3>
     <div id="login-scanner" class="scanner"></div>
     <div class="muted" style="margin-top:8px;">ユーザーQRをかざしてください</div>
