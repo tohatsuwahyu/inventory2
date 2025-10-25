@@ -1,8 +1,8 @@
-@page{size:A4;margin:12mm}
 @media print{
-  body{background:#fff;color:#000}
-  header,footer,nav,#view-dashboard,#view-inout,#view-stocktake,#view-history,#view-settings{display:none !important}
-  .print-a4{display:block;border:none;margin:0;padding:0}
-  .qr-grid{grid-template-columns:repeat(4,1fr)}
-  button{display:none}
+  .sidebar, .topbar, .toolbar, .ghost, .primary, .accent { display:none !important; }
+  body{ background:#fff; }
+  .print-a4{ display:block !important; }
+  .qr-grid{ grid-template-columns: repeat(4, 1fr); gap:10px; }
+  .qr-cell{ box-shadow:none; border:1px solid #ddd }
 }
+.print-a4{ display:none; }
