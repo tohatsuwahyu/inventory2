@@ -22,11 +22,12 @@ body{margin:0;font-family:"Noto Sans JP",system-ui;background:var(--bg);color:va
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line)}
 .search{flex:1;max-width:420px;padding:10px;border-radius:12px;border:1px solid var(--line)}
 .top-actions{display:flex;gap:8px}
+button.ghost{background:#fff;border:1px solid var(--line);}
 
 #app{padding:16px}
 .view{display:none}
 .view.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,.05)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:10px 0}
@@ -37,15 +38,12 @@ button.primary{background:var(--primary);border-color:transparent;color:#fff}
 button.accent{background:var(--accent);border-color:transparent;color:#fff}
 button.danger{background:var(--danger);border-color:transparent;color:#fff}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.table-wrap{overflow:auto}
 table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 th,td{padding:10px;border-bottom:1px solid var(--line)}
 th{background:#f8fafc;text-align:left;color:#0f172a}
 tr:hover{background:#f1f5f9}
 .muted{color:var(--muted);margin-top:6px}
 .scanner{height:320px;min-width:320px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center}
-.footer{padding:20px;text-align:center;color:#94a3b8;background:#fff;border-top:1px solid var(--line)}
-
 .print-a4{background:#fff;color:#000;border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--line)}
 .qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
 .qr-cell{border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center}
