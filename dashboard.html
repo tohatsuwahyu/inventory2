@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>在庫管理（QR）</title>
+
+  <link rel="icon" type="image/png" href="./assets/tsh.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="print.css" media="print" />
+
+  <!-- Libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="qrlib.js" defer></script>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+
+<body class="light">
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sb-brand">
+        <img src="./assets/tsh.png" alt="logo" />
+        <span>在庫管理</span>
+      </div>
+
+      <nav class="sb-nav">
+        <button class="sb-link active" data-view="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></button>
+        <button class="sb-link" data-view="inout"><span class="icon">🔄</span><span>入出庫</span></button>
+
+        <div class="sb-label">マスター</div>
+        <!-- DITAMPILKAN LAGI -->
+        <button class="sb-link admin-only" data-view="stocktake"><span class="icon">🧾</span><span>ストックオープン(棚卸)</span></button>
+        <button class="sb-link admin-only" data-view="items"><span class="icon">📦</span><span>新規商品</span></button>
+        <button class="sb-link admin-only" data-view="users"><span class="icon">👤</span><span>ユーザー</span></button>
+
+        <div class="sb-label">データ</div>
+        <button class="sb-link" data-view="stock"><span class="icon">📊</span><span>在庫</span></button>
+        <button class="sb-link" data-view="parts"><span class="icon">🧩</span><span>部品一覧</span></button>
+        <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
+      </nav>
+
+      <div class="sb-foot">JP • v1.2</div>
+    </aside>
+
+    <!-- Main content -->
+    <section class="content">
+      <header class="topbar">
+        <input class="search" placeholder="検索… (Ctrl+/)" />
+        <div class="top-actions">
+          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
+          <button id="btn-logout" class="ghost">ログアウト</button>
+          <button id="btn-open-in-top" class="primary">入庫</button>
+          <button id="btn-open-out-top" class="accent">出庫</button>
+        </div>
+      </header>
+
+      <main id="app">
+        <!-- Dashboard -->
+        <section id="view-dashboard" class="view active">
+          <div class="cards">
+            <div class="card small">
+              <h3>品目数</h3><div class="kpi" id="kpi-items">0</div>
+            </div>
+            <div class="card small">
+              <h3>総在庫</h3><div class="kpi" id="kpi-stock">0</div>
+            </div>
+            <div class="card small">
+              <h3>在庫下限未満</h3><div class="kpi" id="kpi-low">0</div>
+            </div>
+            <div class="card small">
+              <h3>今日の入出庫</h3><div class="kpi" id="kpi-today">0</div>
+            </div>
+
+            <div class="card">
+              <h3>月次入出庫サマリー</h3>
+              <canvas id="monthlyChart" height="130"></canvas>
+            </div>
+
+            <div class="card">
+              <h3>在庫アラート</h3>
+              <ul id="low-stock-list"></ul>
+            </div>
+
+            <div class="card">
+              <h3>最近の履歴</h3>
+              <ul id="recent5" class="muted"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 入出庫 (scan item only) -->
+        <section id="view-inout" class="view">
+          <div class="grid-1">
+            <div class="pane">
+              <h2>QR スキャナ（商品）</h2>
+              <div id="item-scanner" class="scanner"></div>
+              <div class="info">
+                <label>商品コード</label>
+                <input id="item-code" placeholder="商品コード (QR)" disabled />
+                <div id="item-detail" class="muted"></div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div>
+              <label>数量</label>
+              <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
+            </div>
+            <div>
+              <label>単位</label>
+              <select id="unit"><option value="pcs">pcs</option><option value="g">g</option></select>
+            </div>
+            <div>
+              <label>種別</label>
+              <select id="type"><option value="IN">入庫</option><option value="OUT">出庫</option></select>
+            </div>
+          </div>
+          <button id="btn-commit" class="primary">記録する</button>
+          <div id="commit-status" class="muted"></div>
+        </section>
+
+        <!-- 棚卸（ストックオープン） -->
+        <section id="view-stocktake" class="view">
+          <div class="toolbar">
+            <button id="btn-start-stocktake" class="primary admin-only">棚卸を開始</button>
+            <button id="btn-finish-stocktake" class="accent admin-only">棚卸を反映</button>
+          </div>
+          <table id="stocktake-table" class="table">
+            <thead><tr><th>商品名</th><th>コード</th><th>実在庫</th><th>差分</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- 商品（+ tombol Tambah Item Baru ditampilkan） -->
+        <section id="view-items" class="view">
+          <div class="toolbar">
+            <button id="btn-add-item" class="primary admin-only">新規商品（追加）</button>
+            <input id="item-search" placeholder="検索..." />
+            <button id="btn-export-items">CSV エクスポート</button>
+            <label class="file">CSV インポート<input id="import-items" type="file" accept=".csv,.xlsx" /></label>
+          </div>
+          <table id="items-table" class="table">
+            <thead><tr><th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>操作</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- ユーザー（menu admin: form tambah user di layar, bukan dialog saja） -->
+        <section id="view-users" class="view">
+          <div class="toolbar">
+            <h3 style="margin:0">ユーザー管理</h3>
+          </div>
+          <div class="grid-2">
+            <form id="form-add-user" class="card">
+              <h4>新規ユーザー追加</h4>
+              <label>名前<input id="f-name" required></label>
+              <label>ID<input id="f-id" required></label>
+              <label>役割
+                <select id="f-role"><option value="user">user</option><option value="admin">admin</option></select>
+              </label>
+              <label>パスコード<input id="f-pass" required></label>
+              <button class="primary" id="btn-save-user">保存</button>
+              <div class="muted" id="user-save-msg"></div>
+            </form>
+
+            <div class="card">
+              <h4>ユーザー一覧</h4>
+              <table id="users-table" class="table">
+                <thead><tr><th>名前</th><th>ID</th><th>役割</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 在庫 -->
+        <section id="view-stock" class="view">
+          <div class="toolbar">
+            <button id="btn-export-items-2">CSV エクスポート</button>
+            <label class="file">CSV インポート<input id="import-items-2" type="file" accept=".csv,.xlsx" /></label>
+          </div>
+          <table id="stock-table" class="table">
+            <thead><tr><th>商品名</th><th>コード</th><th>在庫</th><th>下限</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- 履歴 -->
+        <section id="view-history" class="view">
+          <div class="toolbar">
+            <input id="history-search" placeholder="商品/ユーザー/種別" />
+            <input id="date-from" type="date" />
+            <input id="date-to" type="date" />
+            <button id="btn-filter-history">検索</button>
+          </div>
+          <table id="history-table" class="table">
+            <thead><tr><th>日時</th><th>ユーザー</th><th>商品</th><th>コード</th><th>数量</th><th>単位</th><th>種別</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </main>
+    </section>
+  </div>
+</body>
+</html>
