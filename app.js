@@ -321,7 +321,7 @@ async function openItemDetail(code){
 
   const rows = await api('history', { method:'POST', body:{ q: it.code } });
   const buckets = {};
-  rows.forEach(r=>{ const m=(r.timestamp||'').slice(0,7); (buckets[m]??={in:0,out:0}); (r.type==='IN'?buckets[m].in:buckets[m].out)+= Number(r.qty||0); });
+  rows.forEach(r=>{ const m=(r.timestamp||'').slice(0,7); if (!buckets[m]) buckets[m] = { in: 0, out: 0 };; (r.type==='IN'?buckets[m].in:buckets[m].out)+= Number(r.qty||0); });
   const labels = Object.keys(buckets).sort();
   const inData  = labels.map(k=> buckets[k].in);
   const outData = labels.map(k=> buckets[k].out);
