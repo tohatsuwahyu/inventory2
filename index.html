@@ -56,12 +56,13 @@
       <header class="topbar">
         <input class="search" placeholder="検索… (Ctrl+/)" />
         <div class="top-actions">
-          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
-          <button id="btn-login" class="ghost">ログイン</button>
-          <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
-          <button id="btn-open-in-top" class="primary">入庫</button>
-          <button id="btn-open-out-top" class="accent">出庫</button>
-        </div>
+  <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
+  <button id="btn-login-qr" class="ghost">QRログイン</button>
+  <button id="btn-logout" class="ghost" style="display:none">ログアウト</button>
+  <button id="btn-open-in-top" class="primary">入庫</button>
+  <button id="btn-open-out-top" class="accent">出庫</button>
+</div>
+
       </header>
 
       <main id="app">
@@ -92,53 +93,44 @@
         </section>
 
         <!-- 入出庫 -->
-        <section id="view-inout" class="view">
-          <div class="grid-2">
-            <div class="pane">
-              <h2>QR スキャナ（ユーザー）</h2>
-              <div id="user-scanner" class="scanner"></div>
-              <div class="info">
-                <label>ユーザー</label>
-                <input id="user-id" placeholder="ユーザーID (QR)" disabled />
-                <div id="user-name" class="muted">スキャン待ち…</div>
-              </div>
-            </div>
+       <section id="view-inout" class="view">
+  <div class="grid-1">
+    <div class="pane">
+      <h2>QR スキャナ（商品）</h2>
+      <div id="item-scanner" class="scanner"></div>
+      <div class="info">
+        <label>商品コード</label>
+        <input id="item-code" placeholder="商品コード (QR)" disabled />
+        <div id="item-detail" class="muted"></div>
+      </div>
+    </div>
+  </div>
 
-            <div class="pane">
-              <h2>QR スキャナ（商品）</h2>
-              <div id="item-scanner" class="scanner"></div>
-              <div class="info">
-                <label>商品コード</label>
-                <input id="item-code" placeholder="商品コード (QR)" disabled />
-                <div id="item-detail" class="muted"></div>
-              </div>
-            </div>
-          </div>
+  <div class="grid-3">
+    <div>
+      <label>数量</label>
+      <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
+    </div>
+    <div>
+      <label>単位</label>
+      <select id="unit">
+        <option value="pcs">pcs</option>
+        <option value="g">g</option>
+      </select>
+    </div>
+    <div>
+      <label>種別</label>
+      <select id="type">
+        <option value="IN">入庫</option>
+        <option value="OUT">出庫</option>
+      </select>
+    </div>
+  </div>
 
-          <div class="grid-3">
-            <div>
-              <label>数量</label>
-              <input id="qty" type="number" step="0.01" placeholder="pcs または g" disabled />
-            </div>
-            <div>
-              <label>単位</label>
-              <select id="unit" disabled>
-                <option value="pcs">pcs</option>
-                <option value="g">g</option>
-              </select>
-            </div>
-            <div>
-              <label>種別</label>
-              <select id="type" disabled>
-                <option value="IN">入庫</option>
-                <option value="OUT">出庫</option>
-              </select>
-            </div>
-          </div>
+  <button id="btn-commit" class="primary">記録する</button>
+  <div id="commit-status" class="muted"></div>
+</section>
 
-          <button id="btn-commit" class="primary" disabled>記録する</button>
-          <div id="commit-status" class="muted"></div>
-        </section>
 
         <!-- 棚卸 -->
         <section id="view-stocktake" class="view">
@@ -282,5 +274,17 @@
       </menu>
     </form>
   </dialog>
+  <!-- QRログイン（カメラ） -->
+<dialog id="dlg-login-qr">
+  <form method="dialog">
+    <h3>QRログイン</h3>
+    <div id="login-scanner" class="scanner"></div>
+    <div class="muted" style="margin-top:8px;">ユーザーQRをかざしてください</div>
+    <menu>
+      <button value="cancel">閉じる</button>
+    </menu>
+  </form>
+</dialog>
+
 </body>
 </html>
