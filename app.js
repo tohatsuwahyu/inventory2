@@ -14,14 +14,10 @@ function updateWho(){
 }
 function applyRole(){
   qsa('.admin-only').forEach(el => el.style.display = isAdmin() ? '' : 'none');
-  const canCommit = isRegistered();
-  ['user-id','item-code','qty','unit','type'].forEach(id=>{
-    const el = qs('#'+id);
-    if(el) el.disabled = !canCommit;
-  });
-  const btn = qs('#btn-commit');
-  if(btn) btn.disabled = !canCommit;
+  // 入出庫 tidak terkunci
+  ['qty','unit','type','btn-commit'].forEach(id=>{ const el=qs('#'+id); if(el) el.disabled=false; });
 }
+
 
 // ---------- API helper (simple request: no preflight) ----------
 async function api(path, { method='GET', body } = {}){
@@ -149,6 +145,38 @@ function renderDashboard(){
   refreshTodayStats();
   buildMonthlyChart();
 }
+// ===== QR Login =====
+let loginScanner;
+async function startLoginScanner(){
+  try{
+    const cams = await Html5Qrcode.getCameras();
+    const id = cams?.[0]?.id; if(!id) return;
+    const conf = { fps:10, qrbox:{width:250,height:250} };
+    loginScanner = new Html5Qrcode('login-scanner');
+    await loginScanner.start({deviceId:{exact:id}}, conf, onLoginScan);
+  }catch(e){ console.warn('login scanner', e); }
+}
+async function stopLoginScanner(){
+  try{ await loginScanner?.stop(); loginScanner?.clear(); }catch(_){}
+  loginScanner = null;
+}
+function onLoginScan(text){
+  try{ const o=JSON.parse(text); if(o.t==='user') text=o.id; }catch(_){}
+  const u = state.users.find(x=>x.id===text);
+  if(!u){ alert('ユーザーが見つかりません'); return; }
+  state.currentUser = {...u};
+  updateWho(); applyRole();
+  qs('#dlg-login-qr').close();
+  stopLoginScanner();
+}
+
+qs('#btn-login-qr')?.addEventListener('click', ()=>{
+  qs('#dlg-login-qr').showModal();
+  setTimeout(startLoginScanner, 120);
+});
+qs('#btn-logout')?.addEventListener('click', ()=>{
+  state.currentUser = null; updateWho(); applyRole();
+});
 
 // ---------- QR Scanners (flow: user → item) ----------
 let userScanner, itemScanner;
@@ -161,29 +189,19 @@ async function startUserScanner(){
     await userScanner.start({deviceId:{exact:id}}, conf, onUserScan);
   }catch(e){ console.warn('user scanner', e); }
 }
+let itemScanner;
 async function startItemScanner(){
-  if(!isRegistered()){ alert('先にユーザーをスキャンしてください'); return; }
   try{
     const cams = await Html5Qrcode.getCameras();
     const id = cams?.[0]?.id; if(!id) return;
-    const conf = { fps:10, qrbox:{width:250, height:250} };
+    const conf = { fps:10, qrbox:{width:250,height:250} };
     itemScanner = new Html5Qrcode('item-scanner');
     await itemScanner.start({deviceId:{exact:id}}, conf, onItemScan);
   }catch(e){ console.warn('item scanner', e); }
 }
-async function stopScanners(){
-  try{ await userScanner?.stop(); userScanner?.clear(); }catch(_){}
+async function stopItemScanner(){
   try{ await itemScanner?.stop(); itemScanner?.clear(); }catch(_){}
-  userScanner = itemScanner = null;
-}
-function onUserScan(text){
-  try{ const obj=JSON.parse(text); if(obj.t==='user') text=obj.id; }catch(_){}
-  qs('#user-id').value = text;
-  const u = state.users.find(x=>x.id===text);
-  state.currentUser = u ? {...u} : { id:text, name:'', role:'viewer' };
-  qs('#user-name').textContent = u ? `${u.name}（${u.role||'user'}）` : '未登録ユーザー（閲覧のみ）';
-  updateWho(); applyRole();
-  stopScanners().finally(()=> setTimeout(startItemScanner, 150));
+  itemScanner=null;
 }
 function onItemScan(text){
   try{ const obj=JSON.parse(text); if(obj.t==='item') text=obj.code; }catch(_){}
@@ -192,24 +210,37 @@ function onItemScan(text){
   qs('#item-detail').textContent = it ? `${it.name} / 価格: ${it.price||'-'} / 在庫: ${it.stock}` : '未登録商品';
 }
 
+function switchView(id){
+  const view = qs(`#view-${id}`); if(!view) return;
+  qsa('.view').forEach(v=>v.classList.remove('active')); view.classList.add('active');
+  qsa('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
+  if(id==='inout'){ stopItemScanner().finally(()=> setTimeout(startItemScanner, 150)); }
+  else { stopItemScanner(); }
+}
+
 // ---------- Commit IN/OUT ----------
 qs('#btn-commit')?.addEventListener('click', async()=>{
-  if(!isRegistered()){ alert('ユーザー未登録のため記録できません'); return; }
   const payload = {
-    userId: qs('#user-id').value.trim(),
+    userId: state.currentUser?.id || '',            // boleh kosong
     code: qs('#item-code').value.trim(),
     qty: Number(qs('#qty').value||0),
     unit: qs('#unit').value,
     type: qs('#type').value
   };
-  if(!payload.userId || !payload.code || !payload.qty){ alert('必須項目が未入力です'); return; }
+  if(!payload.code || !payload.qty){ alert('商品QRと数量は必須です'); return; }
   try{
     await api('log', { method:'POST', body: payload });
     qs('#commit-status').textContent = '記録しました';
+    // refresh KPI minimum
     state.items = await api('items');
-    renderItems(); renderStock(); renderDashboard(); buildQRSheets(); buildParts(); buildUserQRSheets();
+    renderDashboard(); renderStock(); renderItems();
+    // autoclose? gunakan query ?autoclose=1
+    const ac = new URLSearchParams(location.search).get('autoclose');
+    if(ac==='1'){ setTimeout(()=>window.close(), 400); }
+    else { setTimeout(()=>switchView('dashboard'), 300); }
   }catch(e){ alert('記録失敗: '+e.message); }
 });
+
 
 // ---------- Items ----------
 function renderItems(){
