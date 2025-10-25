@@ -125,3 +125,22 @@ button, .ghost, .primary, .accent{
   .burger.open + .brand + #topnav{ display:block; position:absolute; top:56px; right:16px; background:#fff; border:1px solid var(--border); border-radius:12px; padding:8px }
   #topnav a{ display:block; padding:8px 12px }
 }
+/* --- FIX layering login --- */
+.login-bg{
+  position:fixed; inset:0;
+  background:url('https://www.tohatsu.co.jp/boat/images/index/boat_01.jpg') center/cover no-repeat;
+  filter:saturate(95%) contrast(105%);
+  opacity:.35;
+  z-index:-2;                 /* di bawah semuanya */
+}
+
+.login-overlay{
+  position:fixed; inset:0;
+  background:linear-gradient(180deg, rgba(255,255,255,.65), rgba(246,248,251,.88));
+  z-index:-1;                 /* di bawah konten */
+  pointer-events:none;        /* jangan blokir klik */
+}
+
+/* pastikan konten di atas overlay */
+.appbar{ z-index:10; }
+.login-wrap{ position:relative; z-index:1; }
