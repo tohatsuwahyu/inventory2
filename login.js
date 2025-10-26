@@ -102,45 +102,46 @@ function openQr(){
   setTimeout(start, 150);
 }
 
+let qrBusy = false; // tetap ada debounce
+
 async function onScanQr(text){
-  if (qrBusy) return; // debounce
+  if (qrBusy) return;
   let userId = '';
   if (text.startsWith('USER|')) userId = text.split('|')[1] || '';
-  else {
-    try{ const o = JSON.parse(text); if (o.t === 'user') userId = o.id || ''; }catch(_){}
+  else { try{ const o = JSON.parse(text); if (o.t === 'user') userId = o.id || ''; }catch(_){}
   }
   if (!userId) return;
 
   qrBusy = true;
   try{
-    await qrScanner?.stop(); qrScanner?.clear(); qrScanner = null;
-  }catch(_){}
+    // hentikan kamera dulu
+    try{ await qrScanner?.stop(); qrScanner?.clear(); }catch(_){}
+    qrScanner = null;
 
-  try{
-    // ==== PAKAI GET (tidak ada preflight) ====
+    // TAMPILKAN LOADING
+    showLoading(true, 'ログインしています…');
+
+    // GET loginById (seperti versi sebelumnya yang sudah aman CORS)
     const base = CONFIG.BASE_URL;
-    const qs = new URLSearchParams({
-      action: 'loginById',
-      id: userId,
-      apikey: CONFIG.API_KEY || ''
-    });
+    const qs = new URLSearchParams({ action:'loginById', id:userId, apikey: CONFIG.API_KEY || '' });
     const r = await fetch(`${base}?${qs.toString()}`);
     if (!r.ok){
       const txt = await r.text().catch(()=>r.statusText);
       throw new Error(`GAS error: ${r.status} ${txt}`);
     }
     const res = await r.json();
-    if (!res || res.ok === false){
-      alert(res?.error || 'QRログインに失敗しました'); qrBusy = false; return;
-    }
+    if (!res || res.ok === false) throw new Error(res?.error || 'QRログインに失敗しました');
+
     localStorage.setItem('currentUser', JSON.stringify(res.user));
     location.href = 'dashboard.html';
   }catch(err){
-    // Pesan lebih jelas
-    alert(`Failed to fetch (QR): ${err?.message || err}\n\nCek: config.js BASE_URL (/exec), API_KEY, dan Deploy Web App = Anyone`);
+    alert(`Failed to fetch (QR): ${err?.message || err}`);
+  }finally{
+    showLoading(false);
     qrBusy = false;
   }
 }
+
 
 document.getElementById('link-qr')?.addEventListener('click', (e)=>{ e.preventDefault(); openQr(); });
 document.getElementById('btn-qr')?.addEventListener('click', openQr);
