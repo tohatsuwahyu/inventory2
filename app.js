@@ -20,15 +20,13 @@ const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 
 function setTitle(t){ const el=qs('#page-title'); if(el) el.textContent=t; }
 function showView(id, title){
-  // aktifkan section dengan animasi (class .active)
+  // section transition
   qsa('main section').forEach(sec=>{
     const on = (sec.id===id);
     sec.classList.toggle('d-none', !on);
-    // trigger transition
     requestAnimationFrame(()=>sec.classList.toggle('active', on));
   });
-
-  // aktifkan link dan geser indikator
+  // nav active + indicator move
   const links = qsa('.sidebar nav a');
   let targetLink = null;
   links.forEach(a=>{
@@ -36,20 +34,17 @@ function showView(id, title){
     a.classList.toggle('active', on);
     if(on) targetLink = a;
   });
-
   const ind = qs('.sidebar .nav-indicator');
   if (ind && targetLink){
     const navTop = targetLink.parentElement.getBoundingClientRect().top;
     const linkTop = targetLink.getBoundingClientRect().top;
-    const top = linkTop - navTop + 4;              // padding kecil
+    const top = linkTop - navTop + 4;
     const h   = targetLink.offsetHeight - 8;
     ind.style.setProperty('--ind-top', `${top}px`);
     ind.style.setProperty('--ind-h',   `${h}px`);
   }
-
   if(title) setTitle(title);
 }
-
 function fmt(n){ return new Intl.NumberFormat('ja-JP').format(n??0); }
 function updateWho(){ const u=state.currentUser; qs('#who').textContent=`${u.name}（${u.id}｜${u.role||'user'}）`; }
 
@@ -112,8 +107,8 @@ function renderMonthlyChart(){
 
 /* ============================================================
    QR PAYLOAD: singkat agar tidak overflow
-   - Item  : "ITEM|<code>"
-   - User  : "USER|<id>"
+   - Item : "ITEM|<code>"
+   - User : "USER|<id>"
    ============================================================ */
 const itemQrText = (code)=>`ITEM|${String(code||'')}`;
 const userQrText = (id)=>`USER|${String(id||'')}`;
@@ -143,7 +138,7 @@ function renderItems(){
       </td>`;
     tb.appendChild(tr);
 
-    // QR setelah dipasang
+    // generate QR
     const holder = document.getElementById(idHolder);
     if (holder) {
       holder.innerHTML = '';
@@ -323,12 +318,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     const body={ userId:state.currentUser.id, code:qs('#io-code').value.trim(), qty:Number(qs('#io-qty').value||0), unit:qs('#io-unit').value, type:qs('#io-type').value };
     if(!body.code||!body.qty){ alert('コード/数量は必須'); return; }
     const r=await api('log',{method:'POST',body}); if(r && r.ok===false) return alert(r.error||'エラー');
-    alert('登録しました'); await loadAll(); // initial
-showView('view-dashboard','ダッシュボード');
-await loadAll();
-// posisikan ulang indikator setelah layout siap
-showView('view-dashboard','ダッシュボード');
-showView('view-history','履歴'); fillIoForm({code:'',name:'',price:'',stock:''}); qs('#io-qty').value='';
+    alert('登録しました'); await loadAll(); showView('view-history','履歴'); fillIoForm({code:'',name:'',price:'',stock:''}); qs('#io-qty').value='';
   });
 
   // Stocktake
@@ -391,4 +381,6 @@ showView('view-history','履歴'); fillIoForm({code:'',name:'',price:'',stock:''
   // initial
   showView('view-dashboard','ダッシュボード');
   await loadAll();
+  // posisikan indikator setelah layout final
+  showView('view-dashboard','ダッシュボード');
 });
