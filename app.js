@@ -1,234 +1,226 @@
 // ===== Guard =====
 const saved = localStorage.getItem('currentUser');
-if(!saved){ location.href='index.html'; }
+if (!saved) location.href = 'index.html';
 
-const qs  = (s, el=document) => el.querySelector(s);
-const qsa = (s, el=document) => [...el.querySelectorAll(s)];
-const state = { items: [], users: [], currentUser: JSON.parse(saved), stocktake: [] };
+const state = {
+  currentUser: JSON.parse(saved),
+  items: [],
+  users: [],
+  history: [],
+  monthly: []
+};
 
-const isAdmin = () => state.currentUser?.role === 'admin';
-function updateWho(){
-  const el = qs('#who');
-  if(!el) return;
-  el.textContent = state.currentUser ? `${state.currentUser.name||state.currentUser.id}（${state.currentUser.role||'user'}）` : '未ログイン';
+const qs = (s, el = document) => el.querySelector(s);
+const qsa = (s, el = document) => [...el.querySelectorAll(s)];
+
+// ===== UI helpers =====
+function showView(id) {
+  qsa('main section').forEach(sec => sec.classList.toggle('d-none', sec.id !== id));
+  qsa('.sidebar .nav-link').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('data-view') === id);
+  });
 }
-function applyRole(){
-  // Biarkan menu “Stok Opname” & “Tambah Item Baru” selalu nampak.
-  // Jika Anda masih punya class .admin-only di HTML, pastikan dua menu itu TIDAK pakai class tersebut.
-  qsa('.admin-only').forEach(el => el.style.display = isAdmin() ? '' : 'none');
+
+function fmt(n) {
+  return new Intl.NumberFormat('ja-JP').format(n ?? 0);
 }
 
-// === API helper ===
-async function api(path, { method='GET', body } = {}){
+function updateWho() {
+  qs('#who').textContent =
+    `${state.currentUser.name}（${state.currentUser.id}｜${state.currentUser.role || 'user'}）`;
+}
+
+// ===== API helper =====
+async function api(action, { method = 'GET', body } = {}) {
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
-  const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
-  if(method === 'GET'){
+  const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(action)}&apikey=${apikey}`;
+  if (method === 'GET') {
     const res = await fetch(url);
-    if(!res.ok) throw new Error(await res.text());
+    if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
   const res = await fetch(url, {
-    method:'POST',
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...(body || {}), apikey: CONFIG.API_KEY })
   });
-  if(!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-// === Navigation ===
-function switchView(id){
-  const view = qs(`#view-${id}`);
-  if(!view){ console.warn('view not found:', id); return; }
-  qsa('.view').forEach(v=>v.classList.remove('active'));
-  view.classList.add('active');
-  qsa('.sb-link').forEach(b=> b.classList.toggle('active', b.dataset.view===id));
-  if(id==='inout'){ stopItemScanner().finally(()=> setTimeout(startItemScanner,150)); }
-  else { stopItemScanner(); }
+// ===== Data loads =====
+async function loadAll() {
+  const [items, users, history, monthly] = await Promise.all([
+    api('items'),
+    api('users'),
+    api('history'),
+    api('statsMonthlySeries')
+  ]);
+  state.items = items || [];
+  state.users = users || [];
+  state.history = history || [];
+  state.monthly = monthly || [];
+
+  renderMetrics();
+  renderLowStock();
+  renderItems();
+  renderUsers();
+  renderHistory();
+  renderMonthlyChart();
 }
-function bindSidebar(){
-  qsa('.sb-link').forEach(b=> b.addEventListener('click', ()=> switchView(b.dataset.view)));
+
+function renderMetrics() {
+  const low = state.items.filter(i => Number(i.stock || 0) <= Number(i.min || 0)).length;
+  const last30 = state.history.slice(-200).length; // perkiraan cepat
+  qs('#metric-total-items').textContent = fmt(state.items.length);
+  qs('#metric-low-stock').textContent = fmt(low);
+  qs('#metric-users').textContent = fmt(state.users.length);
+  qs('#metric-txn').textContent = fmt(last30);
 }
 
-// === Bootstrap ===
-async function bootstrap(){
-  try{
-    bindSidebar();
-    qs('#btn-open-in-top')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
-    qs('#btn-open-out-top')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
+function renderLowStock() {
+  const lowRows = state.items
+    .filter(i => Number(i.stock || 0) <= Number(i.min || 0))
+    .sort((a, b) => (a.stock - a.min) - (b.stock - b.min));
 
-    qs('#btn-logout')?.addEventListener('click', ()=>{
-      localStorage.removeItem('currentUser');
-      location.href='index.html';
-    });
-
-    const [items, users] = await Promise.all([ api('items'), api('users') ]);
-    state.items = items; state.users = users;
-
-    renderItems(); renderUsers(); renderDashboard(); renderStock();
-    applyRole(); updateWho();
-
-    // form tambah user (menu admin)
-    qs('#form-add-user')?.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      if(!isAdmin()){ alert('管理者のみ'); return; }
-      const body = {
-        name: qs('#f-name').value.trim(),
-        id:   qs('#f-id').value.trim(),
-        role: qs('#f-role').value,
-        pin: qs('#f-pass').value.trim()
-      };
-      if(!body.name || !body.id || !body.pass){ alert('必須項目'); return; }
-      try{
-        const r = await api('addUser', { method:'POST', body });
-        if(!r.ok) throw new Error(r.error||'failed');
-        qs('#user-save-msg').textContent='保存しました';
-        state.users = await api('users'); renderUsers();
-        e.target.reset();
-      }catch(err){ qs('#user-save-msg').textContent='失敗：'+err.message; }
-    });
-
-  }catch(e){
-    console.error(e);
-    alert('初期化に失敗しました: '+e.message);
-  }
+  const tbody = qs('#tbl-low');
+  tbody.innerHTML = '';
+  lowRows.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i.code || ''}</td>
+      <td>${i.name || ''}</td>
+      <td class="text-end">${fmt(i.stock || 0)}</td>
+      <td class="text-end">${fmt(i.min || 0)}</td>`;
+    tbody.appendChild(tr);
+  });
 }
-window.addEventListener('DOMContentLoaded', bootstrap);
 
-// === Dashboard ===
+function renderItems() {
+  const tbody = qs('#tbl-items'); if (!tbody) return;
+  tbody.innerHTML = '';
+  state.items.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i.code || ''}</td>
+      <td>${i.name || ''}</td>
+      <td class="text-end">¥${fmt(i.price || 0)}</td>
+      <td class="text-end">${fmt(i.stock || 0)}</td>
+      <td class="text-end">${fmt(i.min || 0)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderUsers() {
+  const tbody = qs('#tbl-users'); if (!tbody) return;
+  tbody.innerHTML = '';
+  state.users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u.id || ''}</td><td>${u.name || ''}</td><td>${u.role || 'user'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderHistory() {
+  const tbody = qs('#tbl-history'); if (!tbody) return;
+  tbody.innerHTML = '';
+  state.history.slice(-200).reverse().forEach(h => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${h.timestamp || ''}</td>
+      <td>${h.userId || ''}</td>
+      <td>${h.code || ''}</td>
+      <td class="text-end">${fmt(h.qty || 0)}</td>
+      <td>${h.unit || ''}</td>
+      <td>${h.type || ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
 let monthlyChart;
-async function buildMonthlyChart(){
-  const series = await api('statsMonthlySeries', { method:'GET' });
-  const labels  = series.map(r=>r.month);
-  const inData  = series.map(r=>r.in);
-  const outData = series.map(r=>r.out);
-  const ctx = document.getElementById('monthlyChart');
-  if(!ctx) return;
-  if(monthlyChart) monthlyChart.destroy();
-  monthlyChart = new Chart(ctx, {
+function renderMonthlyChart() {
+  const el = qs('#chart-monthly'); if (!el) return;
+  const labels = state.monthly.map(m => m.month);
+  const inData = state.monthly.map(m => m.in || 0);
+  const outData = state.monthly.map(m => m.out || 0);
+
+  monthlyChart?.destroy?.();
+  monthlyChart = new Chart(el, {
     type: 'bar',
     data: {
       labels,
       datasets: [
-        { type:'bar', label:'入庫', data: inData,  borderWidth:1, backgroundColor:'#2563eb' },
-        { type:'bar', label:'出庫', data: outData, borderWidth:1, backgroundColor:'#f97316' }
+        { label: 'IN', data: inData },
+        { label: 'OUT', data: outData }
       ]
     },
-    options: { responsive:true, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ position:'bottom' } } }
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
   });
 }
-async function refreshTodayStats(){
-  const last = await api('history', { method:'POST', body:{} });
-  const recent5 = last.slice(-5).reverse();
-  const ul5 = qs('#recent5');
-  if(ul5){
-    ul5.innerHTML='';
-    recent5.forEach(r=>{
-      const li=document.createElement('li');
-      li.textContent = `${r.timestamp}｜${r.type==='IN'?'入':'出'}｜${r.name||''}｜${r.qty}${r.unit||''}`;
-      ul5.appendChild(li);
-    });
-  }
-  qs('#kpi-today')?.textContent = recent5.length;
-}
-function renderDashboard(){
-  const low = state.items.filter(it => Number(it.min||0)>0 && Number(it.stock||0)<=Number(it.min));
-  const ul = qs('#low-stock-list');
-  if(ul){
-    ul.innerHTML='';
-    low.forEach(it=>{
-      const li=document.createElement('li');
-      li.textContent=`${it.name}（${it.code}） 残:${it.stock}`;
-      li.style.color='var(--accent)';
-      ul.appendChild(li);
-    });
-  }
-  qs('#kpi-items')?.textContent = state.items.length;
-  qs('#kpi-stock')?.textContent = state.items.reduce((a,b)=>a+Number(b.stock||0),0);
-  qs('#kpi-low')?.textContent   = low.length;
-  refreshTodayStats();
-  buildMonthlyChart();
-}
 
-// === Scanner (item only) ===
-let itemScanner;
-async function startItemScanner(){
-  try{
-    const cams = await Html5Qrcode.getCameras();
-    const id = cams?.[0]?.id; if(!id) return;
-    itemScanner = new Html5Qrcode('item-scanner');
-    await itemScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:250,height:250}}, onItemScan);
-  }catch(e){ console.warn('item scanner', e); }
-}
-async function stopItemScanner(){ try{ await itemScanner?.stop(); itemScanner?.clear(); }catch(_){ } itemScanner=null; }
-function onItemScan(text){
-  try{ const obj=JSON.parse(text); if(obj.t==='item') text=obj.code; }catch(_){}
-  qs('#item-code').value = text;
-  const it = state.items.find(i=>i.code===text);
-  qs('#item-detail').textContent = it
-    ? `${it.name} / 価格: ${it.price||'-'} / 在庫: ${it.stock}`
-    : '未登録商品';
-}
+// ===== Events =====
+window.addEventListener('DOMContentLoaded', async () => {
+  updateWho();
 
-// === Commit IN/OUT ===
-qs('#btn-commit')?.addEventListener('click', async ()=>{
-  const payload = {
-    userId: state.currentUser?.id || '',
-    code  : qs('#item-code').value.trim(),
-    qty   : Number(qs('#qty').value||0),
-    unit  : qs('#unit').value,
-    type  : qs('#type').value
-  };
-  if(!payload.code || !payload.qty){ alert('商品QRと数量は必須です'); return; }
-  if(payload.type==='OUT' && !state.currentUser){ alert('出庫はログインが必要です'); return; }
+  // nav
+  qsa('.sidebar .nav-link').forEach(a => {
+    a.addEventListener('click', () => showView(a.getAttribute('data-view')));
+  });
 
-  try{
-    const r = await api('log', { method:'POST', body: payload });
-    if(!r.ok) throw new Error(r.error||'');
-    qs('#commit-status').textContent = '記録しました';
-    state.items = await api('items');
-    renderDashboard(); renderStock(); renderItems();
-    setTimeout(()=>switchView('dashboard'), 300);
-  }catch(e){ alert('記録失敗: '+e.message); }
+  qs('#btn-logout')?.addEventListener('click', () => {
+    localStorage.removeItem('currentUser');
+    location.href = 'index.html';
+  });
+
+  qs('#btn-refresh')?.addEventListener('click', loadAll);
+
+  // IO form
+  qs('#form-io')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      userId: state.currentUser.id,
+      code: qs('#io-code').value.trim(),
+      qty: Number(qs('#io-qty').value || 0),
+      unit: qs('#io-unit').value.trim() || 'pcs',
+      type: qs('#io-type').value
+    };
+    if (!body.code || !body.qty) { alert('Code/Qty required'); return; }
+    try {
+      const r = await api('log', { method: 'POST', body });
+      if (!r.ok) throw new Error(r.error || '失敗');
+      alert('Saved');
+      await loadAll();
+      showView('view-history');
+    } catch (err) { alert(err.message); }
+  });
+
+  // Add user (uses PIN —> sesuai backend)
+  qs('#form-user')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      name: qs('#u-name').value.trim(),
+      id: qs('#u-id').value.trim(),
+      role: qs('#u-role').value,
+      pin: qs('#u-pin').value.trim()
+    };
+    try {
+      const r = await api('addUser', { method: 'POST', body });
+      if (!r.ok) throw new Error(r.error || '失敗');
+      bootstrap.Modal.getInstance(qs('#dlg-new-user')).hide();
+      await loadAll();
+      showView('view-users');
+    } catch (err) { alert(err.message); }
+  });
+
+  // dummy item (sheet-driven sebenarnya)
+  qs('#btn-dummy-save')?.addEventListener('click', () => {
+    alert('Tambah item baru sebaiknya lewat sheet. Tombol ini dummy.');
+  });
+
+  // initial
+  showView('view-dashboard');
+  await loadAll();
 });
-
-// === Items / Users / Stock ===
-function renderItems(){
-  const tbd = qs('#items-table tbody'); if(!tbd) return; tbd.innerHTML='';
-  const q = (qs('#item-search')?.value || '').toLowerCase();
-  state.items
-    .filter(it => !q || `${it.name}${it.code}`.toLowerCase().includes(q))
-    .forEach(it=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${it.name}</td><td>${it.code}</td><td>${it.price||''}</td>
-        <td>${it.stock||0}</td><td>${it.min||0}</td>
-        <td><button data-code="${it.code}" class="btn-gen-qr accent">QR</button></td>`;
-      tbd.appendChild(tr);
-    });
-  qsa('.btn-gen-qr').forEach(b=> b.onclick = ()=> addItemQR(b.dataset.code));
-}
-qs('#item-search')?.addEventListener('input', renderItems);
-
-function renderUsers(){
-  const tbd = qs('#users-table tbody'); if(!tbd) return; tbd.innerHTML='';
-  state.users.forEach(u=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.id}</td><td>${u.role||'user'}</td>`;
-    tbd.appendChild(tr);
-  });
-}
-function renderStock(){
-  const tbd = qs('#stock-table tbody'); if(!tbd) return; tbd.innerHTML='';
-  state.items.forEach(it=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${it.name}</td><td>${it.code}</td><td>${it.stock||0}</td><td>${it.min||0}</td>`;
-    tbd.appendChild(tr);
-  });
-}
-
-// QR builder placeholder (pakai qrlib.js jika diperlukan)
-function addItemQR(code){
-  const it = state.items.find(i=>i.code===code); if(!it) return;
-  alert(`QR untuk ${it.name} (${it.code})`);
-}
