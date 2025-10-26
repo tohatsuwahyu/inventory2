@@ -1,105 +1,64 @@
-:root{
-  --bg:#f6f8fb;
-  --panel:#ffffff;
-  --text:#0f172a;
-  --muted:#64748b;
-  --primary:#2563eb;
-  --primary-ink:#fff;
-  --accent:#f97316;
-  --radius:14px;
-  --shadow:0 10px 30px rgba(2, 6, 23, .08);
-}
+/* ===== Login page ===== */
+.login-page, .login-page * { box-sizing: border-box; }
+.login-page { min-height: 100dvh; font-family: "Noto Sans JP", system-ui, sans-serif; }
 
-*{ box-sizing:border-box }
-html,body{ height:100% }
-body{
-  margin:0;
-  font-family:'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
-  color:var(--text);
-  background:var(--bg);
+.login-bg {
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.85) 30%, rgba(255,255,255,.85) 100%),
+    /* gunakan gambar dari tohatsu.co.jp (bebas ganti path gambar lain di domain tsb) */
+    url('https://www.tohatsu.co.jp/asset/images/product/hero_01.jpg')
+    center/cover no-repeat;
+  z-index: 0;  /* paling belakang */
 }
+.login-overlay { display: none; } /* tidak perlu overlay kedua */
 
-/* ---------- App bar ---------- */
 .appbar{
-  position:relative;
-  z-index:10;
-  height:56px;
-  display:flex; align-items:center; gap:12px;
-  padding:0 16px;
-  backdrop-filter:saturate(120%) blur(6px);
-  background:linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.4));
-  border-bottom:1px solid rgba(15,23,42,.06);
+  position: relative;
+  z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; gap: 12px;
+  background: transparent;
 }
-.appbar .brand{ display:flex; align-items:center; gap:10px; font-weight:700 }
-.appbar .brand img{ width:26px; height:26px }
-.topnav{ margin-left:auto; display:flex; gap:14px }
-.topnav a{ color:var(--text); text-decoration:none; font-weight:500; opacity:.8 }
-.topnav a:hover{ opacity:1 }
-.burger{ display:none; border:0; background:transparent; font-size:22px; }
+.appbar .brand{ display: inline-flex; gap:10px; align-items:center; }
+.appbar .brand img{ width:28px; height:28px; }
+.appbar .brand span{ font-weight:700; letter-spacing:.02em; }
 
-@media (max-width:720px){
-  .burger{ display:inline-block }
-  .topnav{ position:absolute; top:56px; left:0; right:0; display:none; flex-direction:column; gap:0; background:rgba(255,255,255,.9); backdrop-filter:blur(6px); border-bottom:1px solid rgba(15,23,42,.06) }
-  .topnav.open{ display:flex }
-  .topnav a{ padding:14px 16px; border-top:1px solid rgba(15,23,42,.06) }
+.burger{
+  display:none; border:0; background:#f1f5f9; border-radius:10px; padding:6px 10px; cursor:pointer;
 }
+.topnav a{ display:inline-block; padding:8px 12px; border-radius:10px; background:#f1f5f9; }
 
-/* ---------- Login background layers (FIX) ---------- */
-.login-bg{
-  position:fixed; inset:0;
-  background:url('https://www.tohatsu.co.jp/boat/images/index/boat_01.jpg') center/cover no-repeat;
-  filter:saturate(95%) contrast(105%);
-  opacity:.32;
-  z-index:-2; /* selalu di bawah */
-}
-.login-overlay{
-  position:fixed; inset:0;
-  background:linear-gradient(180deg, rgba(255,255,255,.65), rgba(246,248,251,.88));
-  z-index:-1;       /* di bawah konten */
-  pointer-events:none; /* JANGAN blokir klik */
-}
-
-/* ---------- Login card ---------- */
+/* login card */
 .login-wrap{
-  position:relative; z-index:1; /* pastikan di atas overlay */
-  min-height:calc(100vh - 56px);
-  display:grid;
-  place-items:center;
-  padding:24px;
+  position: relative; z-index: 2;
+  min-height: calc(100dvh - 60px);
+  display: grid; place-items: center; padding: 24px 16px;
 }
-.card{
-  width:100%;
-  max-width:560px;
-  padding:28px 24px;
-  border-radius:var(--radius);
-  background:var(--panel);
-  box-shadow:var(--shadow);
+.login-card{
+  width: min(560px, 96vw);
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(15,23,42,.08);
+  padding: 24px;
 }
-.login-card h1{ margin:0 0 8px 0; font-size:28px }
-.muted{ color:var(--muted); font-size:14px; margin:0 0 16px 0 }
-.lbl{ display:block; font-size:13px; color:var(--muted); margin:14px 0 6px }
-.lbl input{
-  display:block; width:100%;
-  padding:12px 14px; border-radius:12px;
-  border:1px solid rgba(15,23,42,.12);
-  background:#fff; color:var(--text);
-  outline:none;
+.login-card h1{ font-size: 22px; margin:0 0 8px; }
+.login-card .lbl{ display:block; margin: 14px 0; font-size: 14px; }
+.login-card input{
+  width: 100%; margin-top: 6px; padding: 12px 14px;
+  border: 1px solid #e2e8f0; border-radius: 12px; background: #fff;
 }
-.lbl input:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.12) }
-.actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px }
+.login-card .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top: 8px; }
+.login-card .primary{ background:#2563eb; color:#fff; border:0; padding:10px 14px; border-radius: 12px; cursor:pointer; }
+.login-card .ghost{ background:#f1f5f9; color:#111827; border:0; padding:10px 14px; border-radius: 12px; cursor:pointer; }
 
-button{
-  appearance:none; border:0; cursor:pointer; border-radius:12px;
-  padding:10px 16px; font-weight:600;
-}
-.primary{ background:var(--primary); color:var(--primary-ink) }
-.primary:hover{ filter:brightness(.98) }
-.ghost{ background:#eef2ff; color:#334155 }
-.ghost:hover{ filter:brightness(.98) }
+/* QR dialog */
+.qr-dialog::backdrop { background: rgba(0,0,0,.25); }
+.qr-dialog { border:0; border-radius: 16px; width: min(520px, 96vw); padding: 16px; }
 
-/* ---------- QR dialog ---------- */
-.qr-dialog::backdrop{ background:rgba(15,23,42,.3); backdrop-filter:blur(2px) }
-.qr-dialog{ border:0; border-radius:16px; padding:16px 16px 10px; width:min(520px, 92vw) }
-.scanner{ width:100%; height:320px; background:#0b1220; border-radius:12px; }
-.qr-dialog menu{ display:flex; justify-content:flex-end; gap:8px }
-.qr-dialog button{ padding:8px 14px; border-radius:10px }
+/* responsive */
+@media (max-width: 640px){
+  .burger{ display:block; }
+  .topnav{ position:absolute; top:52px; left:16px; right:16px; display:none; }
+  .topnav.open{ display:flex; background:#fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+  .topnav a{ margin:8px; }
+}
