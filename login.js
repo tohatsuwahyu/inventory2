@@ -75,20 +75,30 @@ function openQr(){
     }else begin();
   };
   const begin = async ()=>{
+  try{
+    const cfg = { fps:10, qrbox:{ width:260, height:260 } };
+    qrScanner = new Html5Qrcode('qr-login-area');
+
+    // 1) Coba pakai kamera belakang by facingMode (paling clean)
     try{
-      const cams = await Html5Qrcode.getCameras();
-      const id = cams?.[0]?.id;
-      if (!id){ alert('カメラが見つかりません'); return; }
-      qrScanner = new Html5Qrcode('qr-login-area');
-      await qrScanner.start(
-        { deviceId:{ exact:id } },
-        { fps:10, qrbox:{ width:260, height:260 } },
-        onScanQr
-      );
-    }catch(e){
-      alert('カメラ起動に失敗しました: ' + (e?.message||e));
-    }
-  };
+      await qrScanner.start({ facingMode: "environment" }, cfg, onScanQr);
+      return; // sukses
+    }catch(_){ /* lanjut fallback */ }
+
+    // 2) Fallback: pilih kamera belakang dari daftar
+    const cams = await Html5Qrcode.getCameras();
+    if (!cams || !cams.length) throw new Error('カメラが見つかりません');
+
+    const back = cams.find(c => /back|rear|environment/i.test(c.label)) 
+              || cams[cams.length - 1]                      // biasanya belakang di posisi terakhir
+              || cams[0];
+
+    await qrScanner.start({ deviceId:{ exact: back.id } }, cfg, onScanQr);
+  }catch(e){
+    alert('カメラ起動に失敗しました: ' + (e?.message||e));
+  }
+};
+
   setTimeout(start, 150);
 }
 
