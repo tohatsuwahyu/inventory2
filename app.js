@@ -1,7 +1,7 @@
-// Guard: harus sudah login
+// ===== Guard =====
 const saved = localStorage.getItem('currentUser');
 if(!saved){ location.href='index.html'; }
-// state
+
 const qs  = (s, el=document) => el.querySelector(s);
 const qsa = (s, el=document) => [...el.querySelectorAll(s)];
 const state = { items: [], users: [], currentUser: JSON.parse(saved), stocktake: [] };
@@ -13,10 +13,12 @@ function updateWho(){
   el.textContent = state.currentUser ? `${state.currentUser.name||state.currentUser.id}（${state.currentUser.role||'user'}）` : '未ログイン';
 }
 function applyRole(){
+  // Biarkan menu “Stok Opname” & “Tambah Item Baru” selalu nampak.
+  // Jika Anda masih punya class .admin-only di HTML, pastikan dua menu itu TIDAK pakai class tersebut.
   qsa('.admin-only').forEach(el => el.style.display = isAdmin() ? '' : 'none');
 }
 
-// API helper (tanpa preflight)
+// === API helper ===
 async function api(path, { method='GET', body } = {}){
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
@@ -34,7 +36,7 @@ async function api(path, { method='GET', body } = {}){
   return res.json();
 }
 
-// Navigation
+// === Navigation ===
 function switchView(id){
   const view = qs(`#view-${id}`);
   if(!view){ console.warn('view not found:', id); return; }
@@ -48,11 +50,10 @@ function bindSidebar(){
   qsa('.sb-link').forEach(b=> b.addEventListener('click', ()=> switchView(b.dataset.view)));
 }
 
-// Bootstrap
+// === Bootstrap ===
 async function bootstrap(){
   try{
     bindSidebar();
-    // tombol top
     qs('#btn-open-in-top')?.addEventListener('click', ()=>{ switchView('inout'); qs('#type').value='IN'; });
     qs('#btn-open-out-top')?.addEventListener('click',()=>{ switchView('inout'); qs('#type').value='OUT'; });
 
@@ -67,7 +68,7 @@ async function bootstrap(){
     renderItems(); renderUsers(); renderDashboard(); renderStock();
     applyRole(); updateWho();
 
-    // admin form tambah user
+    // form tambah user (menu admin)
     qs('#form-add-user')?.addEventListener('submit', async (e)=>{
       e.preventDefault();
       if(!isAdmin()){ alert('管理者のみ'); return; }
@@ -88,19 +89,19 @@ async function bootstrap(){
     });
 
   }catch(e){
-    console.error(e); alert('初期化に失敗しました: '+e.message);
+    console.error(e);
+    alert('初期化に失敗しました: '+e.message);
   }
 }
 window.addEventListener('DOMContentLoaded', bootstrap);
 
-// Dashboard
+// === Dashboard ===
 let monthlyChart;
 async function buildMonthlyChart(){
   const series = await api('statsMonthlySeries', { method:'GET' });
   const labels  = series.map(r=>r.month);
   const inData  = series.map(r=>r.in);
   const outData = series.map(r=>r.out);
-
   const ctx = document.getElementById('monthlyChart');
   if(!ctx) return;
   if(monthlyChart) monthlyChart.destroy();
@@ -128,7 +129,7 @@ async function refreshTodayStats(){
       ul5.appendChild(li);
     });
   }
-  qs('#kpi-today').textContent = recent5.length;
+  qs('#kpi-today')?.textContent = recent5.length;
 }
 function renderDashboard(){
   const low = state.items.filter(it => Number(it.min||0)>0 && Number(it.stock||0)<=Number(it.min));
@@ -142,23 +143,21 @@ function renderDashboard(){
       ul.appendChild(li);
     });
   }
-  qs('#kpi-items').textContent = state.items.length;
-  qs('#kpi-stock').textContent = state.items.reduce((a,b)=>a+Number(b.stock||0),0);
-  qs('#kpi-low').textContent   = low.length;
-
+  qs('#kpi-items')?.textContent = state.items.length;
+  qs('#kpi-stock')?.textContent = state.items.reduce((a,b)=>a+Number(b.stock||0),0);
+  qs('#kpi-low')?.textContent   = low.length;
   refreshTodayStats();
   buildMonthlyChart();
 }
 
-// Item scanner only
+// === Scanner (item only) ===
 let itemScanner;
 async function startItemScanner(){
   try{
     const cams = await Html5Qrcode.getCameras();
     const id = cams?.[0]?.id; if(!id) return;
-    const conf = { fps:10, qrbox:{width:250,height:250} };
     itemScanner = new Html5Qrcode('item-scanner');
-    await itemScanner.start({deviceId:{exact:id}}, conf, onItemScan);
+    await itemScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:250,height:250}}, onItemScan);
   }catch(e){ console.warn('item scanner', e); }
 }
 async function stopItemScanner(){ try{ await itemScanner?.stop(); itemScanner?.clear(); }catch(_){ } itemScanner=null; }
@@ -171,7 +170,7 @@ function onItemScan(text){
     : '未登録商品';
 }
 
-// Commit IN/OUT
+// === Commit IN/OUT ===
 qs('#btn-commit')?.addEventListener('click', async ()=>{
   const payload = {
     userId: state.currentUser?.id || '',
@@ -193,7 +192,7 @@ qs('#btn-commit')?.addEventListener('click', async ()=>{
   }catch(e){ alert('記録失敗: '+e.message); }
 });
 
-// Items
+// === Items / Users / Stock ===
 function renderItems(){
   const tbd = qs('#items-table tbody'); if(!tbd) return; tbd.innerHTML='';
   const q = (qs('#item-search')?.value || '').toLowerCase();
@@ -211,7 +210,6 @@ function renderItems(){
 }
 qs('#item-search')?.addEventListener('input', renderItems);
 
-// Users
 function renderUsers(){
   const tbd = qs('#users-table tbody'); if(!tbd) return; tbd.innerHTML='';
   state.users.forEach(u=>{
@@ -220,8 +218,6 @@ function renderUsers(){
     tbd.appendChild(tr);
   });
 }
-
-// Stock
 function renderStock(){
   const tbd = qs('#stock-table tbody'); if(!tbd) return; tbd.innerHTML='';
   state.items.forEach(it=>{
@@ -231,8 +227,8 @@ function renderStock(){
   });
 }
 
-// QR build (items/users)
+// QR builder placeholder (pakai qrlib.js jika diperlukan)
 function addItemQR(code){
   const it = state.items.find(i=>i.code===code); if(!it) return;
-  // … (pakai qrlib.js kamu untuk render sheet print jika perlu)
+  alert(`QR untuk ${it.name} (${it.code})`);
 }
