@@ -19,6 +19,8 @@ const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 })();
 
 function setTitle(t){ const el=qs('#page-title'); if(el) el.textContent=t; }
+function isMobile(){ return window.innerWidth < 992; }
+
 function showView(id, title){
   // section transition
   qsa('main section').forEach(sec=>{
@@ -44,9 +46,22 @@ function showView(id, title){
     ind.style.setProperty('--ind-h',   `${h}px`);
   }
   if(title) setTitle(title);
+
+  // auto-close drawer on mobile
+  if (isMobile()) openMenu(false);
 }
 function fmt(n){ return new Intl.NumberFormat('ja-JP').format(n??0); }
 function updateWho(){ const u=state.currentUser; qs('#who').textContent=`${u.name}（${u.id}｜${u.role||'user'}）`; }
+
+// ===== Drawer controls =====
+function openMenu(open){
+  const sb = qs('.sidebar'); const bd = qs('#backdrop');
+  if (open){ sb.classList.add('open'); bd.classList.add('show'); document.body.style.overflow='hidden'; }
+  else { sb.classList.remove('open'); bd.classList.remove('show'); document.body.style.overflow=''; }
+}
+qs('#btn-menu')?.addEventListener('click', ()=>openMenu(true));
+qs('#backdrop')?.addEventListener('click', ()=>openMenu(false));
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') openMenu(false); });
 
 // ===== API =====
 async function api(action, {method='GET', body}={}){
@@ -105,11 +120,7 @@ function renderMonthlyChart(){
   });
 }
 
-/* ============================================================
-   QR PAYLOAD: singkat agar tidak overflow
-   - Item : "ITEM|<code>"
-   - User : "USER|<id>"
-   ============================================================ */
+/* ===== QR payload pendek agar aman di mobile juga ===== */
 const itemQrText = (code)=>`ITEM|${String(code||'')}`;
 const userQrText = (id)=>`USER|${String(id||'')}`;
 
@@ -138,7 +149,6 @@ function renderItems(){
       </td>`;
     tb.appendChild(tr);
 
-    // generate QR
     const holder = document.getElementById(idHolder);
     if (holder) {
       holder.innerHTML = '';
@@ -146,7 +156,6 @@ function renderItems(){
     }
   });
 
-  // download PNG
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const hid = btn.getAttribute('data-code');
@@ -209,7 +218,7 @@ function renderHistory(){
   });
 }
 
-// ===== STOCKTAKE (scan "ITEM|code") =====
+// ===== STOCKTAKE =====
 async function startScanner(){
   const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
   state.scanner=new Html5Qrcode('scan-area');
@@ -242,7 +251,7 @@ function pushStocktake(code,name,book,real){
 }
 function handleStocktakeAdd(e){ e.preventDefault(); const code=qs('#st-code').value.trim(); const real=Number(qs('#st-qty').value||0); if(!code) return; const it=state.items.find(x=>String(x.code)===String(code)); pushStocktake(code, it?.name||'', Number(it?.stock||0), real); }
 
-// ===== IN/OUT (scan "ITEM|code") =====
+// ===== IN/OUT =====
 async function startIoScan(){
   const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
   state.ioScanner=new Html5Qrcode('io-scan-area');
@@ -262,7 +271,7 @@ function onScanIo(text){
 }
 function fillIoForm(it){ qs('#io-code').value=it.code||''; qs('#io-name').value=it.name||''; qs('#io-price').value=it.price||''; qs('#io-stock').value=it.stock||''; }
 
-// ===== Utils =====
+// ===== Export helpers =====
 function downloadText(filename, text){
   const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
@@ -274,7 +283,7 @@ function exportCsv(filename, rows, headers){
   downloadText(filename, head+body);
 }
 
-// QR preview (pakai dataURL)
+// QR preview
 function previewItemQr(i){
   const obj = { code:i.code, name:i.name, price:Number(i.price||0) };
   if(!obj.code || !obj.name){ alert('コード/名称は必須'); return; }
@@ -381,6 +390,5 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   // initial
   showView('view-dashboard','ダッシュボード');
   await loadAll();
-  // posisikan indikator setelah layout final
   showView('view-dashboard','ダッシュボード');
 });
