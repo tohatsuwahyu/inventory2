@@ -84,60 +84,59 @@ function renderMonthlyChart(){
   });
 }
 
-// ===== ITEMS (QR + image + actions) =====
-function itemQrPayload(i){
-  return JSON.stringify({
-    t:'item',
-    code:String(i.code||''),
-    name:String(i.name||''),
-    price:Number(i.price||0)
-  });
-}
+/* ============================================================
+   QR PAYLOAD: singkat agar tidak overflow
+   - Item  : "ITEM|<code>"
+   - User  : "USER|<id>"
+   ============================================================ */
+const itemQrText = (code)=>`ITEM|${String(code||'')}`;
+const userQrText = (id)=>`USER|${String(id||'')}`;
 
+// ===== ITEMS (QR + image + download) =====
 function renderItems(){
   const tb = qs('#tbl-items'); if (!tb) return;
   tb.innerHTML = '';
 
   state.items.forEach(i=>{
-    const codeSafe = String(i.code||'');           // ID akan: qr-<kode persis>
+    const codeStr = String(i.code||'');
+    const idHolder = `qr-${codeStr.replace(/[^\w\-:.]/g,'_')}`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div id="qr-${codeSafe}"></div></td>
-      <td>${codeSafe}</td>
+      <td class="qr-cell"><div id="${idHolder}"></div></td>
+      <td>${codeStr}</td>
       <td>${i.name || ''}</td>
       <td>${i.img ? `<img class="thumb" src="${i.img}">` : ''}</td>
       <td class="text-end">¥${fmt(i.price || 0)}</td>
       <td class="text-end">${fmt(i.stock || 0)}</td>
       <td class="text-end">${fmt(i.min || 0)}</td>
       <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${codeSafe}">
+        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${idHolder}">
           <i class="bi bi-download"></i>
         </button>
       </td>`;
     tb.appendChild(tr);
 
-    // Buat QR SETELAH <tr> dipasang ke DOM
-    const holder = document.getElementById(`qr-${codeSafe}`);
+    // QR setelah dipasang
+    const holder = document.getElementById(idHolder);
     if (holder) {
-      holder.innerHTML = ''; // bersihkan kalau re-render
-      new QRCode(holder, { text: itemQrPayload(i), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
+      holder.innerHTML = '';
+      new QRCode(holder, { text: itemQrText(codeStr), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
     }
   });
 
-  // Unduh PNG dari QR
+  // download PNG
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const code = btn.getAttribute('data-code');
-      const holder = document.getElementById(`qr-${code}`);
+      const hid = btn.getAttribute('data-code');
+      const holder = document.getElementById(hid);
       if (!holder) return;
       const canvas = holder.querySelector('canvas');
       const img    = holder.querySelector('img');
-      let dataUrl  = '';
-      if (canvas && canvas.toDataURL) dataUrl = canvas.toDataURL('image/png');
-      else if (img && img.src)        dataUrl = img.src;
+      const dataUrl = canvas?.toDataURL?.('image/png') || img?.src || '';
       if (!dataUrl) return;
       const a = document.createElement('a');
-      a.href = dataUrl; a.download = `QR_${code}.png`; a.click();
+      a.href = dataUrl; a.download = `QR_${hid.replace(/^qr-/, '')}.png`; a.click();
     });
   });
 }
@@ -148,44 +147,34 @@ function renderUsers(){
   if (state.currentUser.role === 'admin') btnAdd?.classList.remove('d-none');
   else btnAdd?.classList.add('d-none');
 
-  const tb = qs('#tbl-userqr'); if (!tb) return;
+  const tb = qs('#tbl-userqr'); if (!tb) return; 
   tb.innerHTML = '';
 
   const grid = qs('#print-qr-users-grid'); if (grid) grid.innerHTML = '';
 
   state.users.forEach(u=>{
-    const payload = JSON.stringify({ t:'user', id:String(u.id||'') });
-    const idSafe  = String(u.id||'');
+    const idStr = String(u.id||'');
+    const holderId = `uqr-${idStr.replace(/[^\w\-:.]/g,'_')}`;
+    const payload = userQrText(idStr);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div id="uqr-${CSS.escape(idSafe)}"></div></td>
+      <td class="qr-cell"><div id="${holderId}"></div></td>
       <td>${u.id || ''}</td>
       <td>${u.name || ''}</td>
       <td>${u.role || 'user'}</td>`;
     tb.appendChild(tr);
 
-    const div = qs(`#uqr-${CSS.escape(idSafe)}`);
+    const div = document.getElementById(holderId);
     if (div) new QRCode(div, { text: payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
 
     const card=document.createElement('div'); card.className='qr-card';
-    const v=document.createElement('div'); v.id=`puqr-${idSafe}`;
+    const v=document.createElement('div'); v.id=`p-${holderId}`;
     const title=document.createElement('div'); title.className='title';
     title.textContent=`${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
     card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
-    new QRCode(v,{ text:payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
+    new QRCode(v,{ text: payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
   });
-}
-
-// ===== Auto code untuk item =====
-function nextItemCode(){
-  const nums = state.items
-    .map(i => String(i.code||'').trim())
-    .map(c => (/^\d+$/.test(c) ? Number(c) : NaN))
-    .filter(n => !isNaN(n));
-  const maxNum = nums.length ? Math.max(...nums) : 0;
-  const width  = Math.max(4, ...state.items.map(i => (String(i.code||'').length||0))) || 4;
-  return String(maxNum + 1).padStart(width, '0');
 }
 
 // ===== HISTORY =====
@@ -199,19 +188,21 @@ function renderHistory(){
   });
 }
 
-// ===== STOCKTAKE =====
+// ===== STOCKTAKE (scan "ITEM|code") =====
 async function startScanner(){
   const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
   state.scanner=new Html5Qrcode('scan-area');
   await state.scanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:300,height:300}}, onScanStocktake);
 }
-async function stopScanner(){ try{ await state.scanner?.stop(); state.scanner?.clear(); }catch(_){} state.scanner=null; }
+async function stopScanner(){ try{ await state.scanner?.stop(); state.scanner?.clear(); }catch(_){ } state.scanner=null; }
 function onScanStocktake(text){
   try{
-    const o=JSON.parse(text);
-    if(o.t==='item' && o.code){
-      const it=state.items.find(x=>String(x.code)===String(o.code));
-      pushStocktake(it?.code||o.code, it?.name||o.name||'', Number(it?.stock||0), Number(it?.stock||0));
+    let code = '';
+    if (text.startsWith('ITEM|')) code = text.split('|')[1]||'';
+    else { try{ const o=JSON.parse(text); code = o.code||''; }catch(_){ code=''; } }
+    if (code){
+      const it=state.items.find(x=>String(x.code)===String(code));
+      pushStocktake(code, it?.name||'', Number(it?.stock||0), Number(it?.stock||0));
     }
   }catch(_){}
 }
@@ -229,27 +220,28 @@ function pushStocktake(code,name,book,real){
   });
 }
 function handleStocktakeAdd(e){ e.preventDefault(); const code=qs('#st-code').value.trim(); const real=Number(qs('#st-qty').value||0); if(!code) return; const it=state.items.find(x=>String(x.code)===String(code)); pushStocktake(code, it?.name||'', Number(it?.stock||0), real); }
-function exportStocktake(){ const head='code,name,book,real,diff\n'; const lines=state.stocktakeRows.map(r=>[r.code,r.name,r.book,r.real,r.diff].join(',')); downloadText('stocktake.csv', head+lines.join('\n')); }
 
-// ===== IN/OUT (QR) =====
+// ===== IN/OUT (scan "ITEM|code") =====
 async function startIoScan(){
   const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
   state.ioScanner=new Html5Qrcode('io-scan-area');
   await state.ioScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:300,height:300}}, onScanIo);
 }
-async function stopIoScan(){ try{ await state.ioScanner?.stop(); state.ioScanner?.clear(); }catch(_){} state.ioScanner=null; }
+async function stopIoScan(){ try{ await state.ioScanner?.stop(); state.ioScanner?.clear(); }catch(_){ } state.ioScanner=null; }
 function onScanIo(text){
   try{
-    const o=JSON.parse(text);
-    if(o.t==='item' && o.code){
-      const it=state.items.find(x=>String(x.code)===String(o.code)) || {code:o.code,name:o.name||'',price:o.price||0,stock:0};
+    let code='';
+    if (text.startsWith('ITEM|')) code = text.split('|')[1]||'';
+    else { try{ const o=JSON.parse(text); code=o.code||''; }catch(_){ code=''; } }
+    if (code){
+      const it=state.items.find(x=>String(x.code)===String(code)) || {code, name:'', price:0, stock:0};
       fillIoForm(it); qs('#io-qty').focus();
     }
   }catch(_){}
 }
 function fillIoForm(it){ qs('#io-code').value=it.code||''; qs('#io-name').value=it.name||''; qs('#io-price').value=it.price||''; qs('#io-stock').value=it.stock||''; }
 
-// ===== Export helpers =====
+// ===== Utils =====
 function downloadText(filename, text){
   const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
@@ -261,22 +253,23 @@ function exportCsv(filename, rows, headers){
   downloadText(filename, head+body);
 }
 
-// ===== QR Preview (tanpa about:blank kosong) =====
+// QR preview (pakai dataURL)
 function previewItemQr(i){
-  if(!i || !i.code || !i.name){ alert('コード/名称は必須'); return; }
+  const obj = { code:i.code, name:i.name, price:Number(i.price||0) };
+  if(!obj.code || !obj.name){ alert('コード/名称は必須'); return; }
   const tmp=document.createElement('div');
-  new QRCode(tmp,{ text:itemQrPayload(i), width:240, height:240, correctLevel:QRCode.CorrectLevel.M });
+  new QRCode(tmp,{ text:itemQrText(obj.code), width:240, height:240, correctLevel:QRCode.CorrectLevel.M });
   const canvas=tmp.querySelector('canvas');
   const dataUrl=canvas?canvas.toDataURL('image/png'):'';
   const w=window.open('','qrprev','width=420,height=520');
   w.document.write(`<div style="padding:20px;text-align:center;font-family:sans-serif">
       <img src="${dataUrl}" style="width:240px;height:240px"/>
-      <div style="margin-top:8px">${i.name}（${i.code}） ¥${fmt(i.price||0)}</div>
+      <div style="margin-top:8px">${obj.name}（${obj.code}） ¥${fmt(obj.price||0)}</div>
     </div>`);
   tmp.remove();
 }
 
-// ===== Auto-numbering + Form New Item =====
+// ===== Auto-numbering =====
 function nextItemCode(){
   const nums = state.items.map(i=>String(i.code||'')).map(c=>/^\d+$/.test(c)?Number(c):NaN).filter(n=>!isNaN(n));
   const max = nums.length?Math.max(...nums):0;
@@ -296,7 +289,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   // logout
   qs('#btn-logout')?.addEventListener('click',()=>{ localStorage.removeItem('currentUser'); location.href='index.html'; });
 
-  // IO scan & submit
+  // IO
   qs('#btn-io-scan')?.addEventListener('click', startIoScan);
   qs('#btn-io-stop')?.addEventListener('click', stopIoScan);
   qs('#form-io')?.addEventListener('submit', async (e)=>{
@@ -311,7 +304,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   qs('#btn-start-scan')?.addEventListener('click', startScanner);
   qs('#btn-stop-scan')?.addEventListener('click', stopScanner);
   qs('#st-add')?.addEventListener('click', handleStocktakeAdd);
-  qs('#st-export')?.addEventListener('click', exportStocktake);
+  qs('#st-export')?.addEventListener('click', ()=>downloadText('stocktake.csv','code,name,book,real,diff\n'+state.stocktakeRows.map(r=>[r.code,r.name,r.book,r.real,r.diff].join(',')).join('\n')));
 
   // Items
   qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
