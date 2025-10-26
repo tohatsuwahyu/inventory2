@@ -125,6 +125,18 @@ function renderUsers(){
     new QRCode(pv,{ text:payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
   });
 }
+// ===== Kode otomatis untuk item =====
+function nextItemCode() {
+  // Ambil semua kode numerik, cari maksimum, tambah 1, padding mengikuti lebar maksimum (default 4)
+  const nums = state.items
+    .map(i => String(i.code||'').trim())
+    .map(c => (/^\d+$/.test(c) ? Number(c) : NaN))
+    .filter(n => !isNaN(n));
+  const maxNum = nums.length ? Math.max(...nums) : 0;
+  const width = Math.max(4, ...state.items.map(i => String(i.code||'').length || 0));
+  const next = String(maxNum + 1).padStart(width, '0');
+  return next;
+}
 
 // ===== HISTORY =====
 function renderHistory(){
@@ -203,11 +215,18 @@ function copyNewItemCsv(){
   ].join(',');
   navigator.clipboard.writeText(row).then(()=>alert('CSV行をコピーしました。シート「商品一覧」に貼り付けてください。'));
 }
-function previewItemQr(){
-  const i={ code:qs('#i-code').value.trim(), name:qs('#i-name').value.trim(), price:Number(qs('#i-price').value||0) };
-  if(!i.code||!i.name){ alert('コード/名称は必須'); return; }
-  const w=window.open('','qrprev','width=400,height=460'); w.document.write('<div id="p" style="padding:20px;text-align:center"></div><div id="t" style="text-align:center;font-family:sans-serif"></div>'); const div=w.document.getElementById('p'); new QRCode(div,{ text:itemQrPayload(i), width:240, height:240, correctLevel:QRCode.CorrectLevel.M }); w.document.getElementById('t').innerText=`${i.name}（${i.code}） ¥${fmt(i.price)}`;
+function previewItemQr(i){
+  if(!i || !i.code || !i.name){ alert('コード/名称は必須'); return; }
+  const w = window.open('','qrprev','width=400,height=460');
+  w.document.write('<div id="p" style="padding:20px;text-align:center"></div><div id="t" style="text-align:center;font-family:sans-serif"></div>');
+  const div = w.document.getElementById('p');
+  new QRCode(div, {
+    text: JSON.stringify({ t:'item', code:String(i.code), name:String(i.name), price:Number(i.price||0) }),
+    width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M
+  });
+  w.document.getElementById('t').innerText = `${i.name}（${i.code}） ¥${fmt(i.price)}`;
 }
+
 
 // ===== EVENTS =====
 window.addEventListener('DOMContentLoaded', async ()=>{
@@ -237,11 +256,56 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   qs('#st-export')?.addEventListener('click', exportStocktake);
 
   // Items
-  qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
-  const modalItem = new bootstrap.Modal('#dlg-new-item');
-  qs('#btn-open-new-item')?.addEventListener('click', ()=>modalItem.show());
-  qs('#btn-item-copycsv')?.addEventListener('click', copyNewItemCsv);
-  qs('#btn-item-makeqr')?.addEventListener('click', previewItemQr);
+qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
+
+// Buka modal: isi kode otomatis setiap kali dibuka
+const modalItem = new bootstrap.Modal('#dlg-new-item');
+qs('#btn-open-new-item')?.addEventListener('click', ()=>{
+  qs('#i-code').value  = nextItemCode();
+  qs('#i-name').value  = '';
+  qs('#i-price').value = 0;
+  qs('#i-stock').value = 0;
+  qs('#i-min').value   = 0;
+  qs('#i-img').value   = '';
+  modalItem.show();
+});
+
+// Submit "新規商品" → panggil addItem
+qs('#form-item')?.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const body = {
+    code:  qs('#i-code').value.trim(),
+    name:  qs('#i-name').value.trim(),
+    price: Number(qs('#i-price').value || 0),
+    stock: Number(qs('#i-stock').value || 0),
+    min:   Number(qs('#i-min').value   || 0),
+    img:   qs('#i-img').value.trim(),
+    overwrite: false   // ganti true jika mau update saat kode sudah ada
+  };
+  if(!body.code || !body.name){ alert('コード/名称は必須'); return; }
+  try{
+    const r = await api('addItem', { method:'POST', body });
+    if(r && r.ok===false) throw new Error(r.error||'登録失敗');
+    // Setelah sukses: preview QR + refresh list
+    previewItemQr({ code:body.code, name:body.name, price:body.price });
+    modalItem.hide();
+    await loadAll();
+    showView('view-items','商品一覧');
+  }catch(err){
+    alert(err.message);
+  }
+});
+
+// (opsional) tombol QRをプレビュー manual tetap bekerja
+qs('#btn-item-makeqr')?.addEventListener('click', ()=>{
+  const i = {
+    code:  qs('#i-code').value.trim(),
+    name:  qs('#i-name').value.trim(),
+    price: Number(qs('#i-price').value||0)
+  };
+  previewItemQr(i);
+});
+
 
   // Users
   const modalUser = new bootstrap.Modal('#dlg-new-user');
