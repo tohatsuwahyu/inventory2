@@ -3,63 +3,75 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ログイン | 在庫管理</title>
-  <link rel="icon" type="image/png" href="./assets/tsh.png">
+  <title>ログイン | 在庫管理（QR）</title>
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Libs -->
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+
+  <!-- Konfigurasi (jangan hapus) -->
   <script src="config.js" defer></script>
+
+  <!-- App -->
   <script src="login.js" defer></script>
 </head>
 <body class="light login-page">
 
-  <!-- Hero background – gambar dari tohatsu.co.jp -->
+  <!-- Background with opacity -->
   <div class="login-bg"></div>
   <div class="login-overlay"></div>
 
-  <!-- App bar dengan burger (smartphone) -->
+  <!-- App bar (responsive + burger) -->
   <header class="appbar">
     <button class="burger" id="btn-burger" aria-label="menu">☰</button>
-    <div class="brand"><img src="./assets/tsh.png" alt=""><span>在庫管理</span></div>
-    <nav id="topnav">
-      <a href="#" onclick="document.getElementById('dlg-qr').showModal()">QRログイン</a>
+    <div class="brand">
+      <img src="./assets/tsh.png" alt="logo" />
+      <span>在庫管理</span>
+    </div>
+    <nav class="topnav" id="topnav">
+      <a href="#" id="link-qr">QRログイン</a>
     </nav>
   </header>
 
-  <!-- Panel login -->
+  <!-- Login card -->
   <main class="login-wrap">
-    <section class="login-card">
+    <form class="card login-card" id="login-form">
       <h1>ログイン</h1>
       <p class="muted">ユーザーID か QR でログインできます。</p>
 
-      <form id="login-form">
-        <label>ユーザーID
-          <input id="login-id" autocomplete="username" required>
-        </label>
-        <label>パスコード
-          <input id="login-pass" type="password" autocomplete="current-password" required>
-        </label>
-        <div class="row">
-          <button type="button" class="ghost" onclick="document.getElementById('dlg-qr').showModal()">QRログイン</button>
-          <span class="spacer"></span>
-          <button class="primary" id="btn-login">ログイン</button>
-        </div>
-      </form>
+      <label class="lbl">ユーザーID
+        <input id="pl-id" required autocomplete="username" />
+      </label>
 
-      <div id="login-msg" class="muted" style="margin-top:10px;"></div>
-    </section>
+      <label class="lbl">パスコード
+        <input id="pl-pass" type="password" required autocomplete="current-password" />
+      </label>
+
+      <div class="actions">
+        <button type="button" class="ghost" id="btn-open-qr">QRログイン</button>
+        <button type="submit" class="primary">ログイン</button>
+      </div>
+    </form>
   </main>
 
-  <!-- Dialog QR login (opsional; nanti start scanner di login.js bila dibuka) -->
-  <dialog id="dlg-qr">
+  <!-- QR Login dialog -->
+  <dialog id="dlg-qr" class="qr-dialog">
     <form method="dialog">
       <h3>QRログイン</h3>
-      <div id="qr-login" class="scanner"></div>
+      <div id="login-scanner" class="scanner"></div>
+      <div class="muted" style="margin-top:8px;">ユーザーQRをかざしてください</div>
       <menu>
-        <button value="cancel" class="ghost">閉じる</button>
+        <button value="cancel">閉じる</button>
       </menu>
     </form>
   </dialog>
+
 </body>
 </html>
