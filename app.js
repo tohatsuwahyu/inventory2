@@ -86,18 +86,24 @@ function renderMonthlyChart(){
 
 // ===== ITEMS (QR + image + actions) =====
 function itemQrPayload(i){
-  return JSON.stringify({t:'item', code:String(i.code||''), name:String(i.name||''), price:Number(i.price||0)});
+  return JSON.stringify({
+    t:'item',
+    code:String(i.code||''),
+    name:String(i.name||''),
+    price:Number(i.price||0)
+  });
 }
+
 function renderItems(){
   const tb = qs('#tbl-items'); if (!tb) return;
   tb.innerHTML = '';
 
   state.items.forEach(i=>{
-    const codeSafe = String(i.code||'');
+    const codeSafe = String(i.code||'');           // ID akan: qr-<kode persis>
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div id="qr-${CSS.escape(codeSafe)}"></div></td>
-      <td>${i.code || ''}</td>
+      <td class="qr-cell"><div id="qr-${codeSafe}"></div></td>
+      <td>${codeSafe}</td>
       <td>${i.name || ''}</td>
       <td>${i.img ? `<img class="thumb" src="${i.img}">` : ''}</td>
       <td class="text-end">¥${fmt(i.price || 0)}</td>
@@ -110,17 +116,28 @@ function renderItems(){
       </td>`;
     tb.appendChild(tr);
 
-    // generate QR setelah <tr> terpasang
-    const div = qs(`#qr-${CSS.escape(codeSafe)}`);
-    if (div) new QRCode(div, { text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    // Buat QR SETELAH <tr> dipasang ke DOM
+    const holder = document.getElementById(`qr-${codeSafe}`);
+    if (holder) {
+      holder.innerHTML = ''; // bersihkan kalau re-render
+      new QRCode(holder, { text: itemQrPayload(i), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
+    }
   });
 
-  // download QR (PNG)
+  // Unduh PNG dari QR
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
+    btn.addEventListener('click', ()=>{
       const code = btn.getAttribute('data-code');
-      const canvas = qs(`#qr-${CSS.escape(code)} canvas`); if(!canvas) return;
-      const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`QR_${code}.png`; a.click();
+      const holder = document.getElementById(`qr-${code}`);
+      if (!holder) return;
+      const canvas = holder.querySelector('canvas');
+      const img    = holder.querySelector('img');
+      let dataUrl  = '';
+      if (canvas && canvas.toDataURL) dataUrl = canvas.toDataURL('image/png');
+      else if (img && img.src)        dataUrl = img.src;
+      if (!dataUrl) return;
+      const a = document.createElement('a');
+      a.href = dataUrl; a.download = `QR_${code}.png`; a.click();
     });
   });
 }
