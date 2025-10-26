@@ -3,212 +3,283 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>在庫管理（QR）</title>
+  <title>在庫管理（Dashboard）</title>
 
   <link rel="icon" type="image/png" href="./assets/tsh.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="print.css" media="print" />
 
-  <!-- Libs -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="https://unpkg.com/html5-qrcode" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+
+  <!-- QR lib (dipakai di menu QR/Stock Opname jika perlu) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <script src="qrlib.js" defer></script>
+
+  <!-- Config & App -->
   <script src="config.js" defer></script>
   <script src="app.js" defer></script>
-</head>
 
-<body class="light">
-  <div class="layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sb-brand">
-        <img src="./assets/tsh.png" alt="logo" />
-        <span>在庫管理</span>
+  <style>
+    body { background: #f5f7fb; }
+    .sidebar { width: 260px; background:#112240; color:#fff; position: fixed; top:0; bottom:0; left:0; }
+    .sidebar .brand { padding:16px 20px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,.1); }
+    .sidebar .brand img { width:36px; height:36px; }
+    .sidebar .nav-link { color:#c7d3ea; padding:12px 20px; border-radius:8px; margin:6px 12px; }
+    .sidebar .nav-link.active, .sidebar .nav-link:hover { background:#1b2b4b; color:#fff; }
+    .content { margin-left:260px; padding:24px; }
+    .card-icon { font-size:26px; opacity:.6; }
+    .table thead th { background:#f0f3f9; }
+    .cursor-pointer { cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="./assets/tsh.png" alt="TSH">
+      <div>
+        <div class="fw-semibold">TSH 在庫管理</div>
+        <div id="who" class="small text-white-50">—</div>
+      </div>
+    </div>
+    <nav class="mt-2">
+      <a class="nav-link active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
+      <a class="nav-link" data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫</a>
+      <a class="nav-link" data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
+      <a class="nav-link" data-view="view-users"><i class="bi bi-people me-2"></i> ユーザー</a>
+      <a class="nav-link" data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0">ダッシュボード</h4>
+      <div>
+        <button id="btn-logout" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right me-1"></i>ログアウト</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-muted small">Total Items</div>
+                <div id="metric-total-items" class="h4 mb-0">—</div>
+              </div>
+              <i class="bi bi-box-seam card-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-muted small">Low Stock</div>
+                <div id="metric-low-stock" class="h4 mb-0">—</div>
+              </div>
+              <i class="bi bi-exclamation-triangle card-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-muted small">Users</div>
+                <div id="metric-users" class="h4 mb-0">—</div>
+              </div>
+              <i class="bi bi-people card-icon"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card shadow-sm">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <div class="text-muted small">Transactions (30d)</div>
+                <div id="metric-txn" class="h4 mb-0">—</div>
+              </div>
+              <i class="bi bi-graph-up card-icon"></i>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <nav class="sb-nav">
-        <button class="sb-link active" data-view="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></button>
-        <button class="sb-link" data-view="inout"><span class="icon">🔄</span><span>入出庫</span></button>
-
-        <div class="sb-label">マスター</div>
-        <!-- DITAMPILKAN LAGI -->
-        <button class="sb-link admin-only" data-view="stocktake"><span class="icon">🧾</span><span>ストックオープン(棚卸)</span></button>
-        <button class="sb-link admin-only" data-view="items"><span class="icon">📦</span><span>新規商品</span></button>
-        <button class="sb-link admin-only" data-view="users"><span class="icon">👤</span><span>ユーザー</span></button>
-
-        <div class="sb-label">データ</div>
-        <button class="sb-link" data-view="stock"><span class="icon">📊</span><span>在庫</span></button>
-        <button class="sb-link" data-view="parts"><span class="icon">🧩</span><span>部品一覧</span></button>
-        <button class="sb-link" data-view="history"><span class="icon">🕘</span><span>履歴</span></button>
-      </nav>
-
-      <div class="sb-foot">JP • v1.2</div>
-    </aside>
-
-    <!-- Main content -->
-    <section class="content">
-      <header class="topbar">
-        <input class="search" placeholder="検索… (Ctrl+/)" />
-        <div class="top-actions">
-          <div id="who" class="muted" style="margin-right:12px;">未ログイン</div>
-          <button id="btn-logout" class="ghost">ログアウト</button>
-          <button id="btn-open-in-top" class="primary">入庫</button>
-          <button id="btn-open-out-top" class="accent">出庫</button>
+      <div class="card shadow-sm mt-3">
+        <div class="card-header bg-white"><i class="bi bi-bar-chart me-2"></i>Monthly IN / OUT</div>
+        <div class="card-body">
+          <canvas id="chart-monthly" height="100"></canvas>
         </div>
-      </header>
+      </div>
 
-      <main id="app">
-        <!-- Dashboard -->
-        <section id="view-dashboard" class="view active">
-          <div class="cards">
-            <div class="card small">
-              <h3>品目数</h3><div class="kpi" id="kpi-items">0</div>
-            </div>
-            <div class="card small">
-              <h3>総在庫</h3><div class="kpi" id="kpi-stock">0</div>
-            </div>
-            <div class="card small">
-              <h3>在庫下限未満</h3><div class="kpi" id="kpi-low">0</div>
-            </div>
-            <div class="card small">
-              <h3>今日の入出庫</h3><div class="kpi" id="kpi-today">0</div>
-            </div>
-
-            <div class="card">
-              <h3>月次入出庫サマリー</h3>
-              <canvas id="monthlyChart" height="130"></canvas>
-            </div>
-
-            <div class="card">
-              <h3>在庫アラート</h3>
-              <ul id="low-stock-list"></ul>
-            </div>
-
-            <div class="card">
-              <h3>最近の履歴</h3>
-              <ul id="recent5" class="muted"></ul>
-            </div>
+      <div class="card shadow-sm mt-3">
+        <div class="card-header bg-white d-flex justify-content-between">
+          <span><i class="bi bi-bell me-2"></i>Low Stock</span>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-refresh">Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr><th>Code</th><th>Name</th><th class="text-end">Stock</th><th class="text-end">Min</th></tr>
+              </thead>
+              <tbody id="tbl-low"></tbody>
+            </table>
           </div>
-        </section>
-
-        <!-- 入出庫 (scan item only) -->
-        <section id="view-inout" class="view">
-          <div class="grid-1">
-            <div class="pane">
-              <h2>QR スキャナ（商品）</h2>
-              <div id="item-scanner" class="scanner"></div>
-              <div class="info">
-                <label>商品コード</label>
-                <input id="item-code" placeholder="商品コード (QR)" disabled />
-                <div id="item-detail" class="muted"></div>
-              </div>
-            </div>
-          </div>
-          <div class="grid-3">
-            <div>
-              <label>数量</label>
-              <input id="qty" type="number" step="0.01" placeholder="pcs または g" />
-            </div>
-            <div>
-              <label>単位</label>
-              <select id="unit"><option value="pcs">pcs</option><option value="g">g</option></select>
-            </div>
-            <div>
-              <label>種別</label>
-              <select id="type"><option value="IN">入庫</option><option value="OUT">出庫</option></select>
-            </div>
-          </div>
-          <button id="btn-commit" class="primary">記録する</button>
-          <div id="commit-status" class="muted"></div>
-        </section>
-
-        <!-- 棚卸（ストックオープン） -->
-        <section id="view-stocktake" class="view">
-          <div class="toolbar">
-            <button id="btn-start-stocktake" class="primary admin-only">棚卸を開始</button>
-            <button id="btn-finish-stocktake" class="accent admin-only">棚卸を反映</button>
-          </div>
-          <table id="stocktake-table" class="table">
-            <thead><tr><th>商品名</th><th>コード</th><th>実在庫</th><th>差分</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </section>
-
-        <!-- 商品（+ tombol Tambah Item Baru ditampilkan） -->
-        <section id="view-items" class="view">
-          <div class="toolbar">
-            <button id="btn-add-item" class="primary admin-only">新規商品（追加）</button>
-            <input id="item-search" placeholder="検索..." />
-            <button id="btn-export-items">CSV エクスポート</button>
-            <label class="file">CSV インポート<input id="import-items" type="file" accept=".csv,.xlsx" /></label>
-          </div>
-          <table id="items-table" class="table">
-            <thead><tr><th>商品名</th><th>コード</th><th>価格 (JPY)</th><th>在庫</th><th>下限</th><th>操作</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </section>
-
-        <!-- ユーザー（menu admin: form tambah user di layar, bukan dialog saja） -->
-        <section id="view-users" class="view">
-          <div class="toolbar">
-            <h3 style="margin:0">ユーザー管理</h3>
-          </div>
-          <div class="grid-2">
-            <form id="form-add-user" class="card">
-              <h4>新規ユーザー追加</h4>
-              <label>名前<input id="f-name" required></label>
-              <label>ID<input id="f-id" required></label>
-              <label>役割
-                <select id="f-role"><option value="user">user</option><option value="admin">admin</option></select>
-              </label>
-              <label>パスコード<input id="f-pass" required></label>
-              <button class="primary" id="btn-save-user">保存</button>
-              <div class="muted" id="user-save-msg"></div>
-            </form>
-
-            <div class="card">
-              <h4>ユーザー一覧</h4>
-              <table id="users-table" class="table">
-                <thead><tr><th>名前</th><th>ID</th><th>役割</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- 在庫 -->
-        <section id="view-stock" class="view">
-          <div class="toolbar">
-            <button id="btn-export-items-2">CSV エクスポート</button>
-            <label class="file">CSV インポート<input id="import-items-2" type="file" accept=".csv,.xlsx" /></label>
-          </div>
-          <table id="stock-table" class="table">
-            <thead><tr><th>商品名</th><th>コード</th><th>在庫</th><th>下限</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </section>
-
-        <!-- 履歴 -->
-        <section id="view-history" class="view">
-          <div class="toolbar">
-            <input id="history-search" placeholder="商品/ユーザー/種別" />
-            <input id="date-from" type="date" />
-            <input id="date-to" type="date" />
-            <button id="btn-filter-history">検索</button>
-          </div>
-          <table id="history-table" class="table">
-            <thead><tr><th>日時</th><th>ユーザー</th><th>商品</th><th>コード</th><th>数量</th><th>単位</th><th>種別</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </section>
-      </main>
+        </div>
+      </div>
     </section>
+
+    <!-- IN/OUT -->
+    <section id="view-io" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">入出庫</div>
+        <div class="card-body">
+          <form id="form-io" class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Code</label>
+              <input id="io-code" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Qty</label>
+              <input id="io-qty" type="number" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Unit</label>
+              <input id="io-unit" class="form-control" value="pcs">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Type</label>
+              <select id="io-type" class="form-select">
+                <option value="IN">IN</option>
+                <option value="OUT">OUT</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ITEMS -->
+    <section id="view-items" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <span>商品一覧</span>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#dlg-new-item"><i class="bi bi-plus-lg me-1"></i>新規商品</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>Code</th><th>Name</th><th class="text-end">Price</th><th class="text-end">Stock</th><th class="text-end">Min</th></tr></thead>
+              <tbody id="tbl-items"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="view-users" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <span>ユーザー</span>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#dlg-new-user"><i class="bi bi-person-plus me-1"></i>追加</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>ID</th><th>Name</th><th>Role</th></tr></thead>
+              <tbody id="tbl-users"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">履歴</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>Time</th><th>User</th><th>Code</th><th class="text-end">Qty</th><th>Unit</th><th>Type</th></tr></thead>
+              <tbody id="tbl-history"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- DIALOGS -->
+  <div class="modal fade" id="dlg-new-user" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="form-user" class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">ユーザー追加</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">Name</label>
+            <input id="u-name" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">ID</label>
+            <input id="u-id" class="form-control" required>
+          </div>
+          <div>
+            <label class="form-label">Role</label>
+            <select id="u-role" class="form-select">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">PIN</label>
+            <input id="u-pin" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Save</button>
+        </div>
+      </form>
+    </div>
   </div>
+
+  <div class="modal fade" id="dlg-new-item" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="form-item" class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">新規商品</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Code</label><input id="i-code" class="form-control" required></div>
+            <div class="col-6"><label class="form-label">Name</label><input id="i-name" class="form-control" required></div>
+            <div class="col-4"><label class="form-label">Price</label><input id="i-price" type="number" class="form-control"></div>
+            <div class="col-4"><label class="form-label">Stock</label><input id="i-stock" type="number" class="form-control"></div>
+            <div class="col-4"><label class="form-label">Min</label><input id="i-min" type="number" class="form-control"></div>
+          </div>
+          <div class="form-text mt-2">*Penambahan item baru via sheet direkomendasikan; form ini opsional.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="button" id="btn-dummy-save"><i class="bi bi-save me-1"></i>Save (dummy)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
