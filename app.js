@@ -19,7 +19,11 @@ const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 })();
 
 function setTitle(t){ const el=qs('#page-title'); if(el) el.textContent=t; }
-function showView(id, title){ qsa('main section').forEach(x=>x.classList.toggle('d-none', x.id!==id)); qsa('.sidebar nav a').forEach(a=>a.classList.toggle('active', a.getAttribute('data-view')===id)); if(title) setTitle(title); }
+function showView(id, title){
+  qsa('main section').forEach(x=>x.classList.toggle('d-none', x.id!==id));
+  qsa('.sidebar nav a').forEach(a=>a.classList.toggle('active', a.getAttribute('data-view')===id));
+  if(title) setTitle(title);
+}
 function fmt(n){ return new Intl.NumberFormat('ja-JP').format(n??0); }
 function updateWho(){ const u=state.currentUser; qs('#who').textContent=`${u.name}（${u.id}｜${u.role||'user'}）`; }
 
@@ -27,9 +31,16 @@ function updateWho(){ const u=state.currentUser; qs('#who').textContent=`${u.nam
 async function api(action, {method='GET', body}={}){
   const apikey = encodeURIComponent(CONFIG.API_KEY||'');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(action)}&apikey=${apikey}`;
-  if(method==='GET'){ const r=await fetch(url); if(!r.ok) throw new Error(await r.text()); return r.json(); }
-  const r=await fetch(url,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({...(body||{}), apikey:CONFIG.API_KEY})});
-  if(!r.ok) throw new Error(await r.text()); return r.json();
+  if(method==='GET'){
+    const r=await fetch(url); if(!r.ok) throw new Error(await r.text()); return r.json();
+  }
+  const r=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({...(body||{}), apikey:CONFIG.API_KEY})
+  });
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
 }
 
 // ===== LOAD =====
@@ -60,21 +71,32 @@ let monthlyChart;
 function renderMonthlyChart(){
   const el=qs('#chart-monthly'); if(!el) return;
   monthlyChart?.destroy?.();
-  monthlyChart=new Chart(el,{type:'bar',data:{labels:state.monthly.map(m=>m.month),datasets:[{label:'IN',data:state.monthly.map(m=>m.in||0)},{label:'OUT',data:state.monthly.map(m=>m.out||0)}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+  monthlyChart=new Chart(el,{
+    type:'bar',
+    data:{
+      labels:state.monthly.map(m=>m.month),
+      datasets:[
+        {label:'IN', data:state.monthly.map(m=>m.in||0)},
+        {label:'OUT',data:state.monthly.map(m=>m.out||0)}
+      ]
+    },
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
+  });
 }
 
-// ===== ITEMS (with QR, image, actions) =====
-function itemQrPayload(i){ return JSON.stringify({t:'item', code:String(i.code||''), name:String(i.name||''), price:Number(i.price||0)}); }
+// ===== ITEMS (QR + image + actions) =====
+function itemQrPayload(i){
+  return JSON.stringify({t:'item', code:String(i.code||''), name:String(i.name||''), price:Number(i.price||0)});
+}
 function renderItems(){
-  const tb = qs('#tbl-items'); if (!tb) return; 
+  const tb = qs('#tbl-items'); if (!tb) return;
   tb.innerHTML = '';
 
   state.items.forEach(i=>{
+    const codeSafe = String(i.code||'');
     const tr = document.createElement('tr');
-
-    // bangun SELURUH HTML tanpa generate QR dulu
     tr.innerHTML = `
-      <td class="qr-cell"><div id="qr-${CSS.escape(String(i.code||''))}"></div></td>
+      <td class="qr-cell"><div id="qr-${CSS.escape(codeSafe)}"></div></td>
       <td>${i.code || ''}</td>
       <td>${i.name || ''}</td>
       <td>${i.img ? `<img class="thumb" src="${i.img}">` : ''}</td>
@@ -82,111 +104,71 @@ function renderItems(){
       <td class="text-end">${fmt(i.stock || 0)}</td>
       <td class="text-end">${fmt(i.min || 0)}</td>
       <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${i.code}">
+        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${codeSafe}">
           <i class="bi bi-download"></i>
         </button>
       </td>`;
     tb.appendChild(tr);
 
-    // BARU: generate QR SETELAH <tr> ditempel ke DOM
-    const div = qs(`#qr-${CSS.escape(String(i.code||''))}`);
-    if (div) {
-      new QRCode(div, {
-        text: JSON.stringify({ t:'item', code:String(i.code||''), name:String(i.name||''), price:Number(i.price||0) }),
-        width: 84, height: 84, correctLevel: QRCode.CorrectLevel.M
-      });
-    }
-  });
-
-  // download QR (PNG)
-  tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const code = btn.getAttribute('data-code');
-      const canvas = qs(`#qr-${CSS.escape(code)} canvas`); if (!canvas) return;
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png'); a.download = `QR_${code}.png`; a.click();
-    });
-  });
-}
-
-
-    // QR
-    const tdQr=document.createElement('td'); tdQr.className='qr-cell';
-    const qrDiv=document.createElement('div'); qrDiv.id=`qr-${i.code}`; tdQr.appendChild(qrDiv);
-    new QRCode(qrDiv,{ text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
-    tr.appendChild(tdQr);
-
-    tr.innerHTML += `
-      <td>${i.code||''}</td>
-      <td>${i.name||''}</td>
-      <td>${i.img?`<img class="thumb" src="${i.img}">`:''}</td>
-      <td class="text-end">¥${fmt(i.price||0)}</td>
-      <td class="text-end">${fmt(i.stock||0)}</td>
-      <td class="text-end">${fmt(i.min||0)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${i.code}"><i class="bi bi-download"></i></button>
-      </td>`;
-
-    tb.appendChild(tr);
+    // generate QR setelah <tr> terpasang
+    const div = qs(`#qr-${CSS.escape(codeSafe)}`);
+    if (div) new QRCode(div, { text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
   });
 
   // download QR (PNG)
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      const code=btn.getAttribute('data-code');
-      const canvas=qs(`#qr-${CSS.escape(code)} canvas`); if(!canvas) return;
+      const code = btn.getAttribute('data-code');
+      const canvas = qs(`#qr-${CSS.escape(code)} canvas`); if(!canvas) return;
       const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`QR_${code}.png`; a.click();
     });
   });
 }
 
-// ===== USERS + QR (admin: add user) =====
+// ===== USERS + QR =====
 function renderUsers(){
   const btnAdd = qs('#btn-open-new-user');
   if (state.currentUser.role === 'admin') btnAdd?.classList.remove('d-none');
   else btnAdd?.classList.add('d-none');
 
-  const tb = qs('#tbl-userqr'); if (!tb) return; 
+  const tb = qs('#tbl-userqr'); if (!tb) return;
   tb.innerHTML = '';
 
   const grid = qs('#print-qr-users-grid'); if (grid) grid.innerHTML = '';
 
   state.users.forEach(u=>{
     const payload = JSON.stringify({ t:'user', id:String(u.id||'') });
+    const idSafe  = String(u.id||'');
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div id="uqr-${CSS.escape(String(u.id||''))}"></div></td>
+      <td class="qr-cell"><div id="uqr-${CSS.escape(idSafe)}"></div></td>
       <td>${u.id || ''}</td>
       <td>${u.name || ''}</td>
       <td>${u.role || 'user'}</td>`;
     tb.appendChild(tr);
 
-    // generate QR di tabel
-    const div = qs(`#uqr-${CSS.escape(String(u.id||''))}`);
-    if (div) new QRCode(div, { text: payload, width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
+    const div = qs(`#uqr-${CSS.escape(idSafe)}`);
+    if (div) new QRCode(div, { text: payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
 
-    // kartu cetak A4
-    const card = document.createElement('div'); card.className = 'qr-card';
-    const v = document.createElement('div'); v.id = `puqr-${u.id}`;
-    const title = document.createElement('div'); title.className = 'title';
-    title.textContent = `${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
+    const card=document.createElement('div'); card.className='qr-card';
+    const v=document.createElement('div'); v.id=`puqr-${idSafe}`;
+    const title=document.createElement('div'); title.className='title';
+    title.textContent=`${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
     card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
-    new QRCode(v, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(v,{ text:payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
   });
 }
 
-// ===== Kode otomatis untuk item =====
-function nextItemCode() {
-  // Ambil semua kode numerik, cari maksimum, tambah 1, padding mengikuti lebar maksimum (default 4)
+// ===== Auto code untuk item =====
+function nextItemCode(){
   const nums = state.items
     .map(i => String(i.code||'').trim())
     .map(c => (/^\d+$/.test(c) ? Number(c) : NaN))
     .filter(n => !isNaN(n));
   const maxNum = nums.length ? Math.max(...nums) : 0;
-  const width = Math.max(4, ...state.items.map(i => String(i.code||'').length || 0));
-  const next = String(maxNum + 1).padStart(width, '0');
-  return next;
+  const width  = Math.max(4, ...state.items.map(i => (String(i.code||'').length||0))) || 4;
+  return String(maxNum + 1).padStart(width, '0');
 }
 
 // ===== HISTORY =====
@@ -251,54 +233,50 @@ function onScanIo(text){
 function fillIoForm(it){ qs('#io-code').value=it.code||''; qs('#io-name').value=it.name||''; qs('#io-price').value=it.price||''; qs('#io-stock').value=it.stock||''; }
 
 // ===== Export helpers =====
-function downloadText(filename, text){ const blob=new Blob([text],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500); }
-function exportCsv(filename, rows, headers){ const head=headers.join(',')+'\n'; const body=rows.map(r=>headers.map(h=>(r[h]??'')).join(',')).join('\n'); downloadText(filename, head+body); }
-
-// ===== Import-like helper for New Item (copy CSV row) =====
-function copyNewItemCsv(){
-  const row = [
-    qs('#i-name').value.trim(),
-    qs('#i-code').value.trim(),
-    Number(qs('#i-price').value||0),
-    Number(qs('#i-stock').value||0),
-    Number(qs('#i-min').value||0),
-    qs('#i-img').value.trim() // ← opsional kolom img (kalau ditambahkan di sheet)
-  ].join(',');
-  navigator.clipboard.writeText(row).then(()=>alert('CSV行をコピーしました。シート「商品一覧」に貼り付けてください。'));
+function downloadText(filename, text){
+  const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
 }
+function exportCsv(filename, rows, headers){
+  const head=headers.join(',')+'\n';
+  const body=rows.map(r=>headers.map(h=>(r[h]??'')).join(',')).join('\n');
+  downloadText(filename, head+body);
+}
+
+// ===== QR Preview (tanpa about:blank kosong) =====
 function previewItemQr(i){
   if(!i || !i.code || !i.name){ alert('コード/名称は必須'); return; }
-
-  // buat QR di elemen sementara (halaman ini)
-  const tmp = document.createElement('div');
-  new QRCode(tmp, {
-    text: JSON.stringify({ t:'item', code:String(i.code), name:String(i.name), price:Number(i.price||0) }),
-    width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M
-  });
-  const canvas = tmp.querySelector('canvas');
-  const dataUrl = canvas ? canvas.toDataURL('image/png') : '';
-
-  // tampilkan di jendela baru sebagai <img>
-  const w = window.open('', 'qrprev', 'width=420,height=520');
-  w.document.write(`
-    <div style="padding:20px;text-align:center;font-family:sans-serif">
+  const tmp=document.createElement('div');
+  new QRCode(tmp,{ text:itemQrPayload(i), width:240, height:240, correctLevel:QRCode.CorrectLevel.M });
+  const canvas=tmp.querySelector('canvas');
+  const dataUrl=canvas?canvas.toDataURL('image/png'):'';
+  const w=window.open('','qrprev','width=420,height=520');
+  w.document.write(`<div style="padding:20px;text-align:center;font-family:sans-serif">
       <img src="${dataUrl}" style="width:240px;height:240px"/>
       <div style="margin-top:8px">${i.name}（${i.code}） ¥${fmt(i.price||0)}</div>
     </div>`);
-  // bersihkan
   tmp.remove();
 }
 
-
+// ===== Auto-numbering + Form New Item =====
+function nextItemCode(){
+  const nums = state.items.map(i=>String(i.code||'')).map(c=>/^\d+$/.test(c)?Number(c):NaN).filter(n=>!isNaN(n));
+  const max = nums.length?Math.max(...nums):0;
+  const width = Math.max(4, ...state.items.map(i => (String(i.code||'').length||0))) || 4;
+  return String(max+1).padStart(width,'0');
+}
 
 // ===== EVENTS =====
 window.addEventListener('DOMContentLoaded', async ()=>{
   updateWho();
 
   // nav
-  qsa('.sidebar nav a').forEach(a=>a.addEventListener('click',()=>{ const id=a.getAttribute('data-view'); showView(id, a.textContent.trim()); }));
+  qsa('.sidebar nav a').forEach(a=>a.addEventListener('click',()=>{
+    const id=a.getAttribute('data-view'); showView(id, a.textContent.trim());
+  }));
 
-  // buttons
+  // logout
   qs('#btn-logout')?.addEventListener('click',()=>{ localStorage.removeItem('currentUser'); location.href='index.html'; });
 
   // IO scan & submit
@@ -319,56 +297,42 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   qs('#st-export')?.addEventListener('click', exportStocktake);
 
   // Items
-qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
-
-// Buka modal: isi kode otomatis setiap kali dibuka
-const modalItem = new bootstrap.Modal('#dlg-new-item');
-qs('#btn-open-new-item')?.addEventListener('click', ()=>{
-  qs('#i-code').value  = nextItemCode();
-  qs('#i-name').value  = '';
-  qs('#i-price').value = 0;
-  qs('#i-stock').value = 0;
-  qs('#i-min').value   = 0;
-  qs('#i-img').value   = '';
-  modalItem.show();
-});
-
-// Submit "新規商品" → panggil addItem
-qs('#form-item')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const body = {
-    code:  qs('#i-code').value.trim(),
-    name:  qs('#i-name').value.trim(),
-    price: Number(qs('#i-price').value || 0),
-    stock: Number(qs('#i-stock').value || 0),
-    min:   Number(qs('#i-min').value   || 0),
-    img:   qs('#i-img').value.trim(),
-    overwrite: false   // ganti true jika mau update saat kode sudah ada
-  };
-  if(!body.code || !body.name){ alert('コード/名称は必須'); return; }
-  try{
-    const r = await api('addItem', { method:'POST', body });
-    if(r && r.ok===false) throw new Error(r.error||'登録失敗');
-    // Setelah sukses: preview QR + refresh list
-    previewItemQr({ code:body.code, name:body.name, price:body.price });
-    modalItem.hide();
-    await loadAll();
-    showView('view-items','商品一覧');
-  }catch(err){
-    alert(err.message);
-  }
-});
-
-// (opsional) tombol QRをプレビュー manual tetap bekerja
-qs('#btn-item-makeqr')?.addEventListener('click', ()=>{
-  const i = {
-    code:  qs('#i-code').value.trim(),
-    name:  qs('#i-name').value.trim(),
-    price: Number(qs('#i-price').value||0)
-  };
-  previewItemQr(i);
-});
-
+  qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
+  const modalItem = new bootstrap.Modal('#dlg-new-item');
+  qs('#btn-open-new-item')?.addEventListener('click', ()=>{
+    qs('#i-code').value  = nextItemCode();
+    qs('#i-name').value  = '';
+    qs('#i-price').value = 0;
+    qs('#i-stock').value = 0;
+    qs('#i-min').value   = 0;
+    qs('#i-img').value   = '';
+    modalItem.show();
+  });
+  qs('#form-item')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const body = {
+      code:  qs('#i-code').value.trim(),
+      name:  qs('#i-name').value.trim(),
+      price: Number(qs('#i-price').value || 0),
+      stock: Number(qs('#i-stock').value || 0),
+      min:   Number(qs('#i-min').value   || 0),
+      img:   qs('#i-img').value.trim(),
+      overwrite: false
+    };
+    if(!body.code || !body.name){ alert('コード/名称は必須'); return; }
+    try{
+      const r = await api('addItem', { method:'POST', body });
+      if(r && r.ok===false) throw new Error(r.error||'登録失敗');
+      previewItemQr({ code:body.code, name:body.name, price:body.price });
+      modalItem.hide();
+      await loadAll();
+      showView('view-items','商品一覧');
+    }catch(err){ alert(err.message); }
+  });
+  qs('#btn-item-makeqr')?.addEventListener('click', ()=>{
+    const i={ code:qs('#i-code').value.trim(), name:qs('#i-name').value.trim(), price:Number(qs('#i-price').value||0) };
+    previewItemQr(i);
+  });
 
   // Users
   const modalUser = new bootstrap.Modal('#dlg-new-user');
@@ -379,7 +343,9 @@ qs('#btn-item-makeqr')?.addEventListener('click', ()=>{
     const r=await api('addUser',{method:'POST',body}); if(r && r.ok===false) return alert(r.error||'エラー');
     modalUser.hide(); await loadAll(); showView('view-users','ユーザー / QR');
   });
-  qs('#btn-print-qr-users')?.addEventListener('click', ()=>{ qs('#print-qr-users').classList.remove('d-none'); window.print(); qs('#print-qr-users').classList.add('d-none'); });
+  qs('#btn-print-qr-users')?.addEventListener('click', ()=>{
+    qs('#print-qr-users').classList.remove('d-none'); window.print(); qs('#print-qr-users').classList.add('d-none');
+  });
 
   // initial
   showView('view-dashboard','ダッシュボード');
