@@ -76,7 +76,7 @@ async function bootstrap(){
         name: qs('#f-name').value.trim(),
         id:   qs('#f-id').value.trim(),
         role: qs('#f-role').value,
-        pass: qs('#f-pass').value.trim()
+        pin: qs('#f-pass').value.trim()
       };
       if(!body.name || !body.id || !body.pass){ alert('必須項目'); return; }
       try{
