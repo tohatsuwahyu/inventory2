@@ -11,46 +11,56 @@
   <style>
     :root { --sb:#0f2242; --bg:#f5f7fb; }
     body{ background:var(--bg); font-family:"Noto Sans JP",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue","Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif }
-    .sidebar{ width:270px; position:fixed; inset:0 auto 0 0; background:var(--sb); color:#fff }
+
+    /* ===== Sidebar ===== */
+    .sidebar{ width:270px; position:fixed; inset:0 auto 0 0; background:var(--sb); color:#fff; z-index:1030;
+      transform:none; transition:transform .25s ease; }
     .sidebar .brand{ padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid rgba(255,255,255,.08) }
     .sidebar .brand img{ width:38px; height:38px; object-fit:contain; background:#fff; border-radius:6px }
     .sidebar .brand .role{ font-size:12px; color:#c7d3ea }
-    .sidebar nav a{ display:block; padding:12px 18px; margin:6px 12px; border-radius:10px; color:#c7d3ea; text-decoration:none }
+    .sidebar nav{ position:relative; padding-top:6px; }
+    .sidebar nav a{ display:block; padding:12px 18px; margin:6px 12px; border-radius:10px; color:#c7d3ea; text-decoration:none;
+      position:relative; overflow:hidden; transition: background-color .25s ease, color .25s ease, transform .12s ease; }
     .sidebar nav a.active,.sidebar nav a:hover{ background:#1b2b4b; color:#fff }
+    .sidebar nav a:active{ transform: scale(.98); }
+    .sidebar .nav-indicator{
+      position:absolute; left:6px; width:4px; border-radius:4px;
+      background:#5da8ff; box-shadow:0 0 0 2px #5da8ff22;
+      transition: transform .25s cubic-bezier(.2,.8,.2,1), height .25s;
+      transform: translateY(var(--ind-top, 0)); height: var(--ind-h, 44px);
+    }
+
+    /* ===== Content + topbar ===== */
     .content{ margin-left:270px; padding:24px }
+    .topbar{ display:flex; align-items:center; gap:8px; margin-bottom:12px }
+    .topbar .title{ margin:0 }
+
+    /* ===== Tables / QR / print ===== */
     .table thead th{ background:#f0f3f9 }
     .qr-cell canvas,.qr-cell img{ width:84px; height:84px }
     .thumb{ width:56px; height:56px; object-fit:cover; border:1px solid #e5e7eb; border-radius:6px }
     @media print{
-      .sidebar,.no-print{ display:none!important }
+      .sidebar,.no-print,.topbar{ display:none!important }
       .content{ margin:0; padding:0 }
       .qr-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; padding:18px }
       .qr-card{ border:1px solid #ddd; padding:10px; text-align:center }
       .qr-card .title{ font-size:12px; margin-top:6px }
     }
-    /* ===== nav animation ===== */
-.sidebar nav{ position:relative; padding-top:6px; }
-.sidebar nav a{
-  position:relative; overflow:hidden;
-  transition: background-color .25s ease, color .25s ease, transform .12s ease;
-}
-.sidebar nav a:active{ transform: scale(.98); }
-.sidebar nav a::after{            /* ripple tipis */
-  content:""; position:absolute; inset:auto 0 0 0; height:0; background:#5da8ff33;
-  transition:height .25s ease; pointer-events:none;
-}
-.sidebar nav a:active::after{ height:100%; }
-.sidebar .nav-indicator{
-  position:absolute; left:6px; width:4px; border-radius:4px;
-  background:#5da8ff; box-shadow:0 0 0 2px #5da8ff22;
-  transition: transform .25s cubic-bezier(.2,.8,.2,1), height .25s;
-  transform: translateY(var(--ind-top, 0)); height: var(--ind-h, 44px);
-}
 
-/* ===== section transition ===== */
-main section{ opacity:0; transform: translateY(6px); transition: opacity .24s ease, transform .24s ease; }
-main section.active{ opacity:1; transform:none; }
+    /* ===== Mobile responsive ===== */
+    .backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:1025; }
+    .backdrop.show{ display:block; }
 
+    @media (max-width: 991.98px){
+      .sidebar{ transform:translateX(-100%); box-shadow:none; }
+      .sidebar.open{ transform:translateX(0); box-shadow: 0 0 0 9999px rgba(0,0,0,.0); }
+      .content{ margin-left:0; padding:16px }
+      .topbar{ position:sticky; top:0; z-index:1020; background:var(--bg); padding:10px 6px; border-bottom:1px solid #e9edf5; }
+    }
+
+    /* Section fade/slide */
+    main section{ opacity:0; transform: translateY(6px); transition: opacity .24s ease, transform .24s ease; }
+    main section.active{ opacity:1; transform:none; }
   </style>
 
   <!-- Bootstrap & Icons -->
@@ -68,6 +78,9 @@ main section.active{ opacity:1; transform:none; }
 </head>
 <body>
 
+  <!-- Backdrop untuk mobile -->
+  <div id="backdrop" class="backdrop"></div>
+
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
@@ -77,23 +90,24 @@ main section.active{ opacity:1; transform:none; }
         <div id="who" class="role">—</div>
       </div>
     </div>
-   <nav class="mt-2">
-  <a class="active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
-  <a data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫（QR対応）</a>
-  <a data-view="view-stocktake"><i class="bi bi-clipboard-check me-2"></i> 棚卸</a>
-  <a data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
-  <a data-view="view-users"><i class="bi bi-person-badge me-2"></i> ユーザー / QR</a>
-  <a data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
-  <span class="nav-indicator"></span>  <!-- <= BAR INDIKATOR -->
-</nav>
-
+    <nav class="mt-2">
+      <a class="active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
+      <a data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫（QR対応）</a>
+      <a data-view="view-stocktake"><i class="bi bi-clipboard-check me-2"></i> 棚卸</a>
+      <a data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
+      <a data-view="view-users"><i class="bi bi-person-badge me-2"></i> ユーザー / QR</a>
+      <a data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
+      <span class="nav-indicator"></span>
+    </nav>
   </aside>
 
   <!-- Main -->
   <main class="content">
-    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-      <h4 class="mb-0" id="page-title">ダッシュボード</h4>
-      <div>
+    <!-- Topbar: burger + title + logout -->
+    <div class="topbar no-print">
+      <button id="btn-menu" class="btn btn-outline-secondary d-lg-none"><i class="bi bi-list"></i></button>
+      <h5 id="page-title" class="title">ダッシュボード</h5>
+      <div class="ms-auto">
         <button id="btn-logout" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right me-1"></i> ログアウト</button>
       </div>
     </div>
@@ -101,10 +115,10 @@ main section.active{ opacity:1; transform:none; }
     <!-- DASHBOARD -->
     <section id="view-dashboard">
       <div class="row g-3">
-        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">総アイテム</div><div id="metric-total-items" class="h4 mb-0">—</div></div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">最小在庫以下</div><div id="metric-low-stock" class="h4 mb-0">—</div></div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">ユーザー</div><div id="metric-users" class="h4 mb-0">—</div></div></div></div>
-        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">直近30日の取引</div><div id="metric-txn" class="h4 mb-0">—</div></div></div></div>
+        <div class="col-md-3 col-6"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">総アイテム</div><div id="metric-total-items" class="h4 mb-0">—</div></div></div></div>
+        <div class="col-md-3 col-6"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">最小在庫以下</div><div id="metric-low-stock" class="h4 mb-0">—</div></div></div></div>
+        <div class="col-md-3 col-6"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">ユーザー</div><div id="metric-users" class="h4 mb-0">—</div></div></div></div>
+        <div class="col-md-3 col-6"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">直近30日の取引</div><div id="metric-txn" class="h4 mb-0">—</div></div></div></div>
       </div>
 
       <div class="card shadow-sm mt-3">
@@ -126,16 +140,16 @@ main section.active{ opacity:1; transform:none; }
         <div class="card-body">
           <div id="io-scan-area" class="mb-3" style="max-width:520px"></div>
           <form id="form-io" class="row g-3">
-            <div class="col-md-3"><label class="form-label">コード</label><input id="io-code" class="form-control" required></div>
-            <div class="col-md-5"><label class="form-label">名称</label><input id="io-name" class="form-control" readonly></div>
-            <div class="col-md-2"><label class="form-label">単価（JPY）</label><input id="io-price" class="form-control" readonly></div>
-            <div class="col-md-2"><label class="form-label">在庫</label><input id="io-stock" class="form-control" readonly></div>
+            <div class="col-md-3 col-6"><label class="form-label">コード</label><input id="io-code" class="form-control" required></div>
+            <div class="col-md-5 col-6"><label class="form-label">名称</label><input id="io-name" class="form-control" readonly></div>
+            <div class="col-md-2 col-6"><label class="form-label">単価（JPY）</label><input id="io-price" class="form-control" readonly></div>
+            <div class="col-md-2 col-6"><label class="form-label">在庫</label><input id="io-stock" class="form-control" readonly></div>
 
-            <div class="col-md-3"><label class="form-label">数量</label><input id="io-qty" type="number" class="form-control" required></div>
-            <div class="col-md-3"><label class="form-label">単位</label>
+            <div class="col-md-3 col-6"><label class="form-label">数量</label><input id="io-qty" type="number" class="form-control" required></div>
+            <div class="col-md-3 col-6"><label class="form-label">単位</label>
               <select id="io-unit" class="form-select"><option value="pcs">pcs</option><option value="g">g</option></select>
             </div>
-            <div class="col-md-3"><label class="form-label">種別</label>
+            <div class="col-md-3 col-6"><label class="form-label">種別</label>
               <select id="io-type" class="form-select"><option value="IN">IN</option><option value="OUT">OUT</option></select>
             </div>
             <div class="col-12"><button class="btn btn-primary"><i class="bi bi-save me-1"></i> 登録</button></div>
@@ -157,10 +171,10 @@ main section.active{ opacity:1; transform:none; }
         <div class="card-body">
           <div id="scan-area" class="mb-3" style="max-width:520px"></div>
           <div class="row g-2 mb-3">
-            <div class="col-md-4"><input id="st-code" class="form-control" placeholder="コード手入力"></div>
-            <div class="col-md-3"><input id="st-qty" type="number" class="form-control" placeholder="実在庫数量"></div>
-            <div class="col-md-3"><button id="st-add" class="btn btn-secondary w-100">追加</button></div>
-            <div class="col-md-2"><button id="st-export" class="btn btn-outline-secondary w-100">CSV出力</button></div>
+            <div class="col-md-4 col-6"><input id="st-code" class="form-control" placeholder="コード手入力"></div>
+            <div class="col-md-3 col-6"><input id="st-qty" type="number" class="form-control" placeholder="実在庫数量"></div>
+            <div class="col-md-3 col-6"><button id="st-add" class="btn btn-secondary w-100">追加</button></div>
+            <div class="col-md-2 col-6"><button id="st-export" class="btn btn-outline-secondary w-100">CSV出力</button></div>
           </div>
           <div class="table-responsive">
             <table class="table table-sm align-middle">
@@ -258,12 +272,12 @@ main section.active{ opacity:1; transform:none; }
       <div class="modal-header"><h6 class="modal-title">新規商品</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <div class="row g-2">
-          <div class="col-md-3"><label class="form-label">コード</label><input id="i-code" class="form-control" readonly><div class="form-text">自動採番（開くたびに更新）</div></div>
-          <div class="col-md-5"><label class="form-label">名称</label><input id="i-name" class="form-control" required></div>
-          <div class="col-md-2"><label class="form-label">価格</label><input id="i-price" type="number" class="form-control" value="0"></div>
-          <div class="col-md-1"><label class="form-label">在庫</label><input id="i-stock" type="number" class="form-control" value="0"></div>
-          <div class="col-md-1"><label class="form-label">最小</label><input id="i-min" type="number" class="form-control" value="0"></div>
-          <div class="col-md-12"><label class="form-label">画像URL（任意）</label><input id="i-img" class="form-control" placeholder="https://..."></div>
+          <div class="col-md-3 col-6"><label class="form-label">コード</label><input id="i-code" class="form-control" readonly><div class="form-text">自動採番（開くたびに更新）</div></div>
+          <div class="col-md-5 col-6"><label class="form-label">名称</label><input id="i-name" class="form-control" required></div>
+          <div class="col-md-2 col-6"><label class="form-label">価格</label><input id="i-price" type="number" class="form-control" value="0"></div>
+          <div class="col-md-1 col-6"><label class="form-label">在庫</label><input id="i-stock" type="number" class="form-control" value="0"></div>
+          <div class="col-md-1 col-6"><label class="form-label">最小</label><input id="i-min" type="number" class="form-control" value="0"></div>
+          <div class="col-12"><label class="form-label">画像URL（任意）</label><input id="i-img" class="form-control" placeholder="https://..."></div>
         </div>
       </div>
       <div class="modal-footer">
