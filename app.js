@@ -206,6 +206,27 @@ function renderUsers(){
     new QRCode(v,{ text: payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
   });
 }
+async function startBackCameraScan(mountId, onScan, boxSize=300){
+  const cfg = { fps:10, qrbox:{ width:boxSize, height:boxSize } };
+  const scanner = new Html5Qrcode(mountId);
+
+  // 1) Coba facingMode environment
+  try{
+    await scanner.start({ facingMode: "environment" }, cfg, onScan);
+    return scanner;
+  }catch(_){ /* fallback */ }
+
+  // 2) Fallback pilih kamera belakang dari daftar
+  const cams = await Html5Qrcode.getCameras();
+  if (!cams || !cams.length) throw new Error('カメラが見つかりません');
+
+  const back = cams.find(c => /back|rear|environment/i.test(c.label))
+             || cams[cams.length - 1]
+             || cams[0];
+
+  await scanner.start({ deviceId:{ exact: back.id } }, cfg, onScan);
+  return scanner;
+}
 
 // ===== HISTORY =====
 function renderHistory(){
@@ -220,10 +241,13 @@ function renderHistory(){
 
 // ===== STOCKTAKE =====
 async function startScanner(){
-  const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
-  state.scanner=new Html5Qrcode('scan-area');
-  await state.scanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:300,height:300}}, onScanStocktake);
+  try{
+    state.scanner = await startBackCameraScan('scan-area', onScanStocktake, (isMobile()?240:300));
+  }catch(err){
+    alert('カメラが見つかりません: ' + (err?.message||err));
+  }
 }
+
 async function stopScanner(){ try{ await state.scanner?.stop(); state.scanner?.clear(); }catch(_){ } state.scanner=null; }
 function onScanStocktake(text){
   try{
@@ -253,10 +277,13 @@ function handleStocktakeAdd(e){ e.preventDefault(); const code=qs('#st-code').va
 
 // ===== IN/OUT =====
 async function startIoScan(){
-  const cams=await Html5Qrcode.getCameras(); const id=cams?.[0]?.id; if(!id){ alert('カメラが見つかりません'); return; }
-  state.ioScanner=new Html5Qrcode('io-scan-area');
-  await state.ioScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:300,height:300}}, onScanIo);
+  try{
+    state.ioScanner = await startBackCameraScan('io-scan-area', onScanIo, (isMobile()?240:300));
+  }catch(err){
+    alert('カメラが見つかりません: ' + (err?.message||err));
+  }
 }
+
 async function stopIoScan(){ try{ await state.ioScanner?.stop(); state.ioScanner?.clear(); }catch(_){ } state.ioScanner=null; }
 function onScanIo(text){
   try{
