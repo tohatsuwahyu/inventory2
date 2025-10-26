@@ -28,6 +28,29 @@
       .qr-card{ border:1px solid #ddd; padding:10px; text-align:center }
       .qr-card .title{ font-size:12px; margin-top:6px }
     }
+    /* ===== nav animation ===== */
+.sidebar nav{ position:relative; padding-top:6px; }
+.sidebar nav a{
+  position:relative; overflow:hidden;
+  transition: background-color .25s ease, color .25s ease, transform .12s ease;
+}
+.sidebar nav a:active{ transform: scale(.98); }
+.sidebar nav a::after{            /* ripple tipis */
+  content:""; position:absolute; inset:auto 0 0 0; height:0; background:#5da8ff33;
+  transition:height .25s ease; pointer-events:none;
+}
+.sidebar nav a:active::after{ height:100%; }
+.sidebar .nav-indicator{
+  position:absolute; left:6px; width:4px; border-radius:4px;
+  background:#5da8ff; box-shadow:0 0 0 2px #5da8ff22;
+  transition: transform .25s cubic-bezier(.2,.8,.2,1), height .25s;
+  transform: translateY(var(--ind-top, 0)); height: var(--ind-h, 44px);
+}
+
+/* ===== section transition ===== */
+main section{ opacity:0; transform: translateY(6px); transition: opacity .24s ease, transform .24s ease; }
+main section.active{ opacity:1; transform:none; }
+
   </style>
 
   <!-- Bootstrap & Icons -->
@@ -54,14 +77,16 @@
         <div id="who" class="role">—</div>
       </div>
     </div>
-    <nav class="mt-2">
-      <a class="active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
-      <a data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫（QR対応）</a>
-      <a data-view="view-stocktake"><i class="bi bi-clipboard-check me-2"></i> 棚卸</a>
-      <a data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
-      <a data-view="view-users"><i class="bi bi-person-badge me-2"></i> ユーザー / QR</a>
-      <a data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
-    </nav>
+   <nav class="mt-2">
+  <a class="active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
+  <a data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫（QR対応）</a>
+  <a data-view="view-stocktake"><i class="bi bi-clipboard-check me-2"></i> 棚卸</a>
+  <a data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
+  <a data-view="view-users"><i class="bi bi-person-badge me-2"></i> ユーザー / QR</a>
+  <a data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
+  <span class="nav-indicator"></span>  <!-- <= BAR INDIKATOR -->
+</nav>
+
   </aside>
 
   <!-- Main -->
