@@ -104,6 +104,15 @@
 
   <!-- Login logic (file kamu sendiri) -->
   <script src="login.js"></script>
+<script>
+  function showLoading(on, text){
+    const el = document.getElementById('global-loading');
+    const t  = document.getElementById('loading-text');
+    if(!el) return;
+    if(text) t.textContent = text;
+    el.classList.toggle('d-none', !on);
+  }
+</script>
 
   <!-- Brand & Background init (tidak mengubah login.js) -->
   <script>
