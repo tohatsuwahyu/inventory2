@@ -3,55 +3,64 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>在庫管理（Dashboard）</title>
+  <title>在庫管理（ダッシュボード）</title>
 
-  <link rel="icon" type="image/png" href="./assets/tsh.png">
-  <!-- Bootstrap 5 -->
+  <!-- フォント -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --sb:#0f2242; --sb2:#18305f; --bg:#f5f7fb; }
+    html,body{ height:100% }
+    body{ background:var(--bg); font-family:"Noto Sans JP",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue","Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif }
+    .sidebar { width: 270px; background: var(--sb); color:#fff; position: fixed; inset: 0 auto 0 0; }
+    .sidebar .brand { padding:16px 20px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,.08); }
+    .sidebar .brand img { width:38px; height:38px; object-fit:contain; background:#fff; border-radius:6px; }
+    .sidebar .brand .role { font-size:12px; color:#c7d3ea; line-height:1.2 }
+    .sidebar nav a { display:block; color:#c7d3ea; padding:12px 18px; border-radius:10px; margin:6px 12px; text-decoration:none }
+    .sidebar nav a.active, .sidebar nav a:hover { background:#1b2b4b; color:#fff }
+    .content { margin-left:270px; padding:24px; }
+    .card-icon { font-size:26px; opacity:.6 }
+    .table thead th { background:#f0f3f9 }
+    .cursor-pointer { cursor:pointer }
+    .qr-cell canvas, .qr-cell img { width:84px; height:84px }
+  </style>
+
+  <!-- Bootstrap 5 & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <link rel="stylesheet" href="print.css" media="print" />
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 
-  <!-- QR lib (dipakai di menu QR/Stock Opname jika perlu) -->
+  <!-- QR ライブラリ（生成・読取）-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
   <script src="qrlib.js" defer></script>
 
-  <!-- Config & App -->
+  <!-- App -->
   <script src="config.js" defer></script>
   <script src="app.js" defer></script>
 
-  <style>
-    body { background: #f5f7fb; }
-    .sidebar { width: 260px; background:#112240; color:#fff; position: fixed; top:0; bottom:0; left:0; }
-    .sidebar .brand { padding:16px 20px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(255,255,255,.1); }
-    .sidebar .brand img { width:36px; height:36px; }
-    .sidebar .nav-link { color:#c7d3ea; padding:12px 20px; border-radius:8px; margin:6px 12px; }
-    .sidebar .nav-link.active, .sidebar .nav-link:hover { background:#1b2b4b; color:#fff; }
-    .content { margin-left:260px; padding:24px; }
-    .card-icon { font-size:26px; opacity:.6; }
-    .table thead th { background:#f0f3f9; }
-    .cursor-pointer { cursor: pointer; }
-  </style>
+  <link rel="stylesheet" href="print.css" media="print" />
 </head>
 <body>
 
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
-      <img src="./assets/tsh.png" alt="TSH">
+      <img id="brand-logo" src="./assets/tsh.png" alt="logo">
       <div>
-        <div class="fw-semibold">TSH 在庫管理</div>
-        <div id="who" class="small text-white-50">—</div>
+        <div class="fw-bold">TSH 在庫管理</div>
+        <div id="who" class="role">—</div>
       </div>
     </div>
     <nav class="mt-2">
-      <a class="nav-link active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
-      <a class="nav-link" data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫</a>
-      <a class="nav-link" data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
-      <a class="nav-link" data-view="view-users"><i class="bi bi-people me-2"></i> ユーザー</a>
-      <a class="nav-link" data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
+      <a class="active" data-view="view-dashboard"><i class="bi bi-house-door me-2"></i> ダッシュボード</a>
+      <a data-view="view-io"><i class="bi bi-arrow-left-right me-2"></i> 入出庫</a>
+      <a data-view="view-stocktake"><i class="bi bi-clipboard-check me-2"></i> 棚卸</a>
+      <a data-view="view-items"><i class="bi bi-box-seam me-2"></i> 商品一覧</a>
+      <a data-view="view-qrlist"><i class="bi bi-qr-code me-2"></i> QRコード一覧</a>
+      <a data-view="view-users"><i class="bi bi-people me-2"></i> ユーザー</a>
+      <a data-view="view-history"><i class="bi bi-clock-history me-2"></i> 履歴</a>
     </nav>
   </aside>
 
@@ -59,226 +68,131 @@
   <main class="content">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h4 class="mb-0">ダッシュボード</h4>
-      <div>
-        <button id="btn-logout" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right me-1"></i>ログアウト</button>
-      </div>
+      <div><button id="btn-logout" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right me-1"></i> ログアウト</button></div>
     </div>
 
     <!-- DASHBOARD -->
     <section id="view-dashboard">
       <div class="row g-3">
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body d-flex align-items-center justify-content-between">
-              <div>
-                <div class="text-muted small">Total Items</div>
-                <div id="metric-total-items" class="h4 mb-0">—</div>
-              </div>
-              <i class="bi bi-box-seam card-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body d-flex align-items-center justify-content-between">
-              <div>
-                <div class="text-muted small">Low Stock</div>
-                <div id="metric-low-stock" class="h4 mb-0">—</div>
-              </div>
-              <i class="bi bi-exclamation-triangle card-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body d-flex align-items-center justify-content-between">
-              <div>
-                <div class="text-muted small">Users</div>
-                <div id="metric-users" class="h4 mb-0">—</div>
-              </div>
-              <i class="bi bi-people card-icon"></i>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="card shadow-sm">
-            <div class="card-body d-flex align-items-center justify-content-between">
-              <div>
-                <div class="text-muted small">Transactions (30d)</div>
-                <div id="metric-txn" class="h4 mb-0">—</div>
-              </div>
-              <i class="bi bi-graph-up card-icon"></i>
-            </div>
-          </div>
-        </div>
+        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body d-flex align-items-center justify-content-between">
+          <div><div class="text-muted small">総アイテム</div><div id="metric-total-items" class="h4 mb-0">—</div></div><i class="bi bi-box-seam card-icon"></i></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body d-flex align-items-center justify-content-between">
+          <div><div class="text-muted small">最小在庫以下</div><div id="metric-low-stock" class="h4 mb-0">—</div></div><i class="bi bi-exclamation-triangle card-icon"></i></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body d-flex align-items-center justify-content-between">
+          <div><div class="text-muted small">ユーザー</div><div id="metric-users" class="h4 mb-0">—</div></div><i class="bi bi-people card-icon"></i></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm"><div class="card-body d-flex align-items-center justify-content-between">
+          <div><div class="text-muted small">直近30日の取引</div><div id="metric-txn" class="h4 mb-0">—</div></div><i class="bi bi-graph-up card-icon"></i></div></div></div>
       </div>
 
       <div class="card shadow-sm mt-3">
-        <div class="card-header bg-white"><i class="bi bi-bar-chart me-2"></i>Monthly IN / OUT</div>
-        <div class="card-body">
-          <canvas id="chart-monthly" height="100"></canvas>
-        </div>
+        <div class="card-header bg-white"><i class="bi bi-bar-chart me-2"></i> 月次 IN / OUT</div>
+        <div class="card-body"><canvas id="chart-monthly" height="100"></canvas></div>
       </div>
 
       <div class="card shadow-sm mt-3">
-        <div class="card-header bg-white d-flex justify-content-between">
-          <span><i class="bi bi-bell me-2"></i>Low Stock</span>
-          <button class="btn btn-sm btn-outline-secondary" id="btn-refresh">Refresh</button>
-        </div>
+        <div class="card-header bg-white d-flex justify-content-between"><span><i class="bi bi-bell me-2"></i> 最小在庫以下</span><button class="btn btn-sm btn-outline-secondary" id="btn-refresh">更新</button></div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr><th>Code</th><th>Name</th><th class="text-end">Stock</th><th class="text-end">Min</th></tr>
-              </thead>
-              <tbody id="tbl-low"></tbody>
-            </table>
-          </div>
+          <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>コード</th><th>名称</th><th class="text-end">在庫</th><th class="text-end">最小</th></tr></thead>
+            <tbody id="tbl-low"></tbody>
+          </table></div>
         </div>
       </div>
     </section>
 
-    <!-- IN/OUT -->
+    <!-- IO -->
     <section id="view-io" class="d-none">
       <div class="card shadow-sm">
         <div class="card-header bg-white">入出庫</div>
         <div class="card-body">
           <form id="form-io" class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Code</label>
-              <input id="io-code" class="form-control" required>
+            <div class="col-md-3"><label class="form-label">コード</label><input id="io-code" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">数量</label><input id="io-qty" type="number" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">単位</label><input id="io-unit" class="form-control" value="pcs"></div>
+            <div class="col-md-3"><label class="form-label">種別</label>
+              <select id="io-type" class="form-select"><option value="IN">IN</option><option value="OUT">OUT</option></select>
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Qty</label>
-              <input id="io-qty" type="number" class="form-control" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Unit</label>
-              <input id="io-unit" class="form-control" value="pcs">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Type</label>
-              <select id="io-type" class="form-select">
-                <option value="IN">IN</option>
-                <option value="OUT">OUT</option>
-              </select>
-            </div>
-            <div class="col-12">
-              <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Save</button>
-            </div>
+            <div class="col-12"><button class="btn btn-primary"><i class="bi bi-save me-1"></i> 登録</button></div>
           </form>
         </div>
       </div>
     </section>
 
-    <!-- ITEMS -->
+    <!-- 棚卸（QRスキャン） -->
+    <section id="view-stocktake" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-clipboard-check me-2"></i> 棚卸（QRスキャン）</span>
+          <div>
+            <button id="btn-start-scan" class="btn btn-sm btn-primary me-2"><i class="bi bi-camera-video me-1"></i> スキャン開始</button>
+            <button id="btn-stop-scan" class="btn btn-sm btn-outline-secondary"><i class="bi bi-stop-circle me-1"></i> 停止</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="scan-area" class="mb-3" style="max-width:520px"></div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>コード</th><th>名称</th><th class="text-end">在庫</th><th class="text-end">最小</th></tr></thead>
+              <tbody id="tbl-stocktake"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 商品一覧 -->
     <section id="view-items" class="d-none">
       <div class="card shadow-sm">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-          <span>商品一覧</span>
-          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#dlg-new-item"><i class="bi bi-plus-lg me-1"></i>新規商品</button>
-        </div>
+        <div class="card-header bg-white">商品一覧</div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead><tr><th>Code</th><th>Name</th><th class="text-end">Price</th><th class="text-end">Stock</th><th class="text-end">Min</th></tr></thead>
-              <tbody id="tbl-items"></tbody>
-            </table>
-          </div>
+          <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>コード</th><th>名称</th><th class="text-end">価格</th><th class="text-end">在庫</th><th class="text-end">最小</th></tr></thead>
+            <tbody id="tbl-items"></tbody>
+          </table></div>
         </div>
       </div>
     </section>
 
-    <!-- USERS -->
+    <!-- QRコード一覧 -->
+    <section id="view-qrlist" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">QRコード一覧（商品）</div>
+        <div class="card-body">
+          <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>QR</th><th>コード</th><th>名称</th></tr></thead>
+            <tbody id="tbl-qr"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ユーザー -->
     <section id="view-users" class="d-none">
       <div class="card shadow-sm">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-          <span>ユーザー</span>
-          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#dlg-new-user"><i class="bi bi-person-plus me-1"></i>追加</button>
-        </div>
+        <div class="card-header bg-white">ユーザー</div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead><tr><th>ID</th><th>Name</th><th>Role</th></tr></thead>
-              <tbody id="tbl-users"></tbody>
-            </table>
-          </div>
+          <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>ID</th><th>名前</th><th>ロール</th></tr></thead>
+            <tbody id="tbl-users"></tbody>
+          </table></div>
         </div>
       </div>
     </section>
 
-    <!-- HISTORY -->
+    <!-- 履歴 -->
     <section id="view-history" class="d-none">
       <div class="card shadow-sm">
         <div class="card-header bg-white">履歴</div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead><tr><th>Time</th><th>User</th><th>Code</th><th class="text-end">Qty</th><th>Unit</th><th>Type</th></tr></thead>
-              <tbody id="tbl-history"></tbody>
-            </table>
-          </div>
+          <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>日時</th><th>ユーザー</th><th>コード</th><th class="text-end">数量</th><th>単位</th><th>種別</th></tr></thead>
+            <tbody id="tbl-history"></tbody>
+          </table></div>
         </div>
       </div>
     </section>
 
   </main>
-
-  <!-- DIALOGS -->
-  <div class="modal fade" id="dlg-new-user" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <form id="form-user" class="modal-content">
-        <div class="modal-header"><h6 class="modal-title">ユーザー追加</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="mb-2">
-            <label class="form-label">Name</label>
-            <input id="u-name" class="form-control" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">ID</label>
-            <input id="u-id" class="form-control" required>
-          </div>
-          <div>
-            <label class="form-label">Role</label>
-            <select id="u-role" class="form-select">
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-          </div>
-          <div class="mt-2">
-            <label class="form-label">PIN</label>
-            <input id="u-pin" class="form-control">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="modal fade" id="dlg-new-item" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <form id="form-item" class="modal-content">
-        <div class="modal-header"><h6 class="modal-title">新規商品</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label">Code</label><input id="i-code" class="form-control" required></div>
-            <div class="col-6"><label class="form-label">Name</label><input id="i-name" class="form-control" required></div>
-            <div class="col-4"><label class="form-label">Price</label><input id="i-price" type="number" class="form-control"></div>
-            <div class="col-4"><label class="form-label">Stock</label><input id="i-stock" type="number" class="form-control"></div>
-            <div class="col-4"><label class="form-label">Min</label><input id="i-min" type="number" class="form-control"></div>
-          </div>
-          <div class="form-text mt-2">*Penambahan item baru via sheet direkomendasikan; form ini opsional.</div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" type="button" id="btn-dummy-save"><i class="bi bi-save me-1"></i>Save (dummy)</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
