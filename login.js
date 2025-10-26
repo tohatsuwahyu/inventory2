@@ -1,114 +1,77 @@
-// ---------- Guard ----------
-if (!window.CONFIG || !CONFIG.BASE_URL) {
-  alert('CONFIG missing: pastikan config.js dimuat sebelum login.js');
-  throw new Error('CONFIG missing');
-}
+// small qs helpers
+const qs = (s, el=document)=>el.querySelector(s);
 
-// ---------- API helper (tanpa preflight) ----------
+// burger
+window.addEventListener('DOMContentLoaded', ()=>{
+  qs('#btn-burger')?.addEventListener('click', ()=> qs('#topnav')?.classList.toggle('open'));
+});
+
+// API helper sama pola app.js (tanpa preflight)
 async function api(path, { method='GET', body } = {}){
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
-
-  if (method === 'GET'){
+  if(method === 'GET'){
     const res = await fetch(url);
     if(!res.ok) throw new Error(await res.text());
     return res.json();
   }
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
   });
   if(!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-// ---------- State ----------
-const state = { users: [] };
+// Login manual
+qs('#login-form')?.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const id = qs('#pl-id').value.trim();
+  const pass = qs('#pl-pass').value.trim();
+  if(!id || !pass){ alert('ID/パスコードが必要です'); return; }
+  try{
+    const r = await api('login', { method:'POST', body:{ id, pass }});
+    if(!r.ok) throw new Error(r.error||'ログイン失敗');
+    localStorage.setItem('currentUser', JSON.stringify(r.user));
+    location.href = 'app.html'; // halaman dashboard
+  }catch(err){ alert(err.message); }
+});
 
-// ---------- QR ----------
-let qr;
-async function openQR(){
+// QR Login
+let loginScanner;
+qs('#btn-open-qr')?.addEventListener('click', ()=>{
+  qs('#dlg-qr').showModal();
+  setTimeout(startLoginScanner, 120);
+});
+qs('#link-qr')?.addEventListener('click', (e)=>{
+  e.preventDefault();
+  qs('#dlg-qr').showModal();
+  setTimeout(startLoginScanner, 120);
+});
+async function startLoginScanner(){
   try{
     const cams = await Html5Qrcode.getCameras();
     const id = cams?.[0]?.id; if(!id) return;
-    qr = new Html5Qrcode('login-scanner');
-    await qr.start({deviceId:{exact:id}}, { fps:10, qrbox:{width:250,height:250} }, onScan);
-  }catch(e){ console.warn('qr', e); }
+    loginScanner = new Html5Qrcode('login-scanner');
+    await loginScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:250,height:250}}, onLoginScan);
+  }catch(e){ console.warn('login scanner', e); }
 }
-async function stopQR(){
-  try{ await qr?.stop(); qr?.clear(); }catch(_){}
-  qr = null;
-}
-function onScan(text){
+async function stopLoginScanner(){ try{ await loginScanner?.stop(); loginScanner?.clear(); }catch(_){ } loginScanner=null; }
+function onLoginScan(text){
   try{
     const o = JSON.parse(text);
     if(o.t==='user' && o.id){
-      doLogin(o.id, o.pin || '');
-    }else{
-      // kalau QR hanya plain ID
-      doLogin(text, '');
+      // login lewat id dari QR
+      api('loginById', { method:'POST', body:{ id:o.id } })
+      .then(r=>{
+        if(!r.ok) throw new Error(r.error||'QRログイン失敗');
+        localStorage.setItem('currentUser', JSON.stringify(r.user));
+        location.href='app.html';
+      })
+      .catch(err=> alert(err.message));
     }
-  }catch{
-    doLogin(text, '');
-  }
-  document.getElementById('dlg-qr').close();
-  stopQR();
+  }catch(_){}
+  qs('#dlg-qr').close();
+  stopLoginScanner();
 }
-
-// ---------- Manual login ----------
-async function doLogin(id, pass){
-  const u = state.users.find(x=>String(x.id) === String(id));
-  if(!u){ alert('ユーザーが見つかりません'); return; }
-
-  // validasi pin/password sederhana (opsional)
-  if (u.pin && String(u.pin) !== String(pass || document.getElementById('pl-pass').value || '')){
-    alert('パスコードが違います'); return;
-  }
-
-  // simpan session ringan
-  sessionStorage.setItem('currentUser', JSON.stringify(u));
-
-  // redirect ke dashboard (index utama Anda)
-  location.href = './index.html';
-}
-
-// ---------- Init ----------
-window.addEventListener('DOMContentLoaded', async()=>{
-  // burger
-  const topnav = document.getElementById('topnav');
-  document.getElementById('btn-burger')?.addEventListener('click', ()=>{
-    topnav.classList.toggle('open');
-  });
-
-  // data users
-  try{
-    state.users = await api('users');
-  }catch(e){
-    console.error(e);
-    alert('ユーザーデータの取得に失敗しました: ' + e.message);
-  }
-
-  // manual submit
-  document.getElementById('login-form')?.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const id = document.getElementById('pl-id').value.trim();
-    const pw = document.getElementById('pl-pass').value.trim();
-    doLogin(id, pw);
-  });
-
-  // open QR
-  document.getElementById('btn-open-qr')?.addEventListener('click', ()=>{
-    document.getElementById('dlg-qr').showModal();
-    setTimeout(openQR, 120);
-  });
-  // link QR di top bar
-  document.getElementById('link-qr')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    document.getElementById('dlg-qr').showModal();
-    setTimeout(openQR, 120);
-  });
-
-  // stop QR saat dialog ditutup via ESC
-  document.getElementById('dlg-qr')?.addEventListener('close', stopQR);
-});
