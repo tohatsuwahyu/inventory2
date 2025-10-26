@@ -34,7 +34,7 @@ qs('#login-form')?.addEventListener('submit', async (e)=>{
     const r = await api('login', { method:'POST', body:{ id, pass }});
     if(!r.ok) throw new Error(r.error||'ログイン失敗');
     localStorage.setItem('currentUser', JSON.stringify(r.user));
-    location.href = 'app.html'; // halaman dashboard
+    location.href = 'dashboard.html'; // halaman dashboard
   }catch(err){ alert(err.message); }
 });
 
