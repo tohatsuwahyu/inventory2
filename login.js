@@ -1,94 +1,114 @@
-// Simple API helper
+// ---------- Guard ----------
+if (!window.CONFIG || !CONFIG.BASE_URL) {
+  alert('CONFIG missing: pastikan config.js dimuat sebelum login.js');
+  throw new Error('CONFIG missing');
+}
+
+// ---------- API helper (tanpa preflight) ----------
 async function api(path, { method='GET', body } = {}){
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
   const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(path)}&apikey=${apikey}`;
-  if(method === 'GET'){
-    const r = await fetch(url);
-    if(!r.ok) throw new Error(await r.text());
-    return r.json();
+
+  if (method === 'GET'){
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
   }
-  const r = await fetch(url, {
-    method:'POST',
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
   });
-  if(!r.ok) throw new Error(await r.text());
-  return r.json();
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
-// Burger (mobile)
-document.getElementById('btn-burger')?.addEventListener('click', e=>{
-  e.currentTarget.classList.toggle('open');
-});
+// ---------- State ----------
+const state = { users: [] };
 
-// Manual login
-document.getElementById('login-form')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const id = document.getElementById('login-id').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  const msg = document.getElementById('login-msg');
-
+// ---------- QR ----------
+let qr;
+async function openQR(){
   try{
-    const res = await api('login', { method:'POST', body:{ id, pass }});
-    if(!res.ok){ msg.textContent = '認証失敗：' + (res.error||''); return; }
-    localStorage.setItem('currentUser', JSON.stringify(res.user));
-    location.href = 'dashboard.html';
-  }catch(err){
-    msg.textContent = '通信エラー：' + err.message;
+    const cams = await Html5Qrcode.getCameras();
+    const id = cams?.[0]?.id; if(!id) return;
+    qr = new Html5Qrcode('login-scanner');
+    await qr.start({deviceId:{exact:id}}, { fps:10, qrbox:{width:250,height:250} }, onScan);
+  }catch(e){ console.warn('qr', e); }
+}
+async function stopQR(){
+  try{ await qr?.stop(); qr?.clear(); }catch(_){}
+  qr = null;
+}
+function onScan(text){
+  try{
+    const o = JSON.parse(text);
+    if(o.t==='user' && o.id){
+      doLogin(o.id, o.pin || '');
+    }else{
+      // kalau QR hanya plain ID
+      doLogin(text, '');
+    }
+  }catch{
+    doLogin(text, '');
   }
+  document.getElementById('dlg-qr').close();
+  stopQR();
+}
+
+// ---------- Manual login ----------
+async function doLogin(id, pass){
+  const u = state.users.find(x=>String(x.id) === String(id));
+  if(!u){ alert('ユーザーが見つかりません'); return; }
+
+  // validasi pin/password sederhana (opsional)
+  if (u.pin && String(u.pin) !== String(pass || document.getElementById('pl-pass').value || '')){
+    alert('パスコードが違います'); return;
+  }
+
+  // simpan session ringan
+  sessionStorage.setItem('currentUser', JSON.stringify(u));
+
+  // redirect ke dashboard (index utama Anda)
+  location.href = './index.html';
+}
+
+// ---------- Init ----------
+window.addEventListener('DOMContentLoaded', async()=>{
+  // burger
+  const topnav = document.getElementById('topnav');
+  document.getElementById('btn-burger')?.addEventListener('click', ()=>{
+    topnav.classList.toggle('open');
+  });
+
+  // data users
+  try{
+    state.users = await api('users');
+  }catch(e){
+    console.error(e);
+    alert('ユーザーデータの取得に失敗しました: ' + e.message);
+  }
+
+  // manual submit
+  document.getElementById('login-form')?.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const id = document.getElementById('pl-id').value.trim();
+    const pw = document.getElementById('pl-pass').value.trim();
+    doLogin(id, pw);
+  });
+
+  // open QR
+  document.getElementById('btn-open-qr')?.addEventListener('click', ()=>{
+    document.getElementById('dlg-qr').showModal();
+    setTimeout(openQR, 120);
+  });
+  // link QR di top bar
+  document.getElementById('link-qr')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    document.getElementById('dlg-qr').showModal();
+    setTimeout(openQR, 120);
+  });
+
+  // stop QR saat dialog ditutup via ESC
+  document.getElementById('dlg-qr')?.addEventListener('close', stopQR);
 });
-
-// QR login (optional; only start when dialog opened)
-const dlg = document.getElementById('dlg-qr');
-let qrScanner;
-dlg?.addEventListener('close', async ()=>{
-  try{ await qrScanner?.stop(); qrScanner?.clear(); }catch(_){}
-});
-dlg?.addEventListener('cancel', ()=>{}); // default close
-
-dlg?.addEventListener('show', ()=>{});   // not used
-
-document.getElementById('dlg-qr')?.addEventListener('click', async (ev)=>{
-  // no-op; dialog handled by buttons
-});
-
-document.getElementById('dlg-qr')?.addEventListener('close', ()=>{});
-
-document.getElementById('dlg-qr')?.addEventListener('cancel', ()=>{});
-
-document.getElementById('dlg-qr')?.addEventListener('submit', ()=>{});
-
-// When dialog open (button in HTML calls showModal()), start camera shortly after
-document.getElementById('dlg-qr')?.addEventListener('close', ()=>{});
-document.getElementById('dlg-qr')?.addEventListener('cancel', ()=>{});
-
-document.getElementById('dlg-qr')?.addEventListener('click', ()=>{});
-
-document.getElementById('dlg-qr')?.addEventListener('close', ()=>{});
-
-const openQR = () => {
-  setTimeout(async ()=>{
-    try{
-      const cams = await Html5Qrcode.getCameras();
-      const id = cams?.[0]?.id; if(!id) return;
-      qrScanner = new Html5Qrcode('qr-login');
-      await qrScanner.start({deviceId:{exact:id}}, {fps:10, qrbox:{width:240, height:240}}, async (text)=>{
-        try{
-          let payload = {};
-          try{ const o = JSON.parse(text); if(o.t==='user'){ payload.id=o.id; payload.pass=o.pass||''; } else { payload.id=text; } }
-          catch(_){ payload.id=text; }
-
-          const res = await api('login', { method:'POST', body: payload });
-          if(res.ok){
-            localStorage.setItem('currentUser', JSON.stringify(res.user));
-            location.href='dashboard.html';
-          }else{
-            document.getElementById('login-msg').textContent = 'QR認証失敗';
-          }
-        }catch(_){}
-      });
-    }catch(e){ console.warn('qr login', e); }
-  }, 120);
-};
-
-document.querySelector('.ghost')?.addEventListener('click', openQR);
