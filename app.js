@@ -215,7 +215,7 @@ function renderHistory(){
   });
 }
 
-// === IO & Stocktake (tetap seperti sebelumnya; di sini tidak mempengaruhi koneksi/QR) ===
+// === IO & Stocktake ===
 async function startBackCameraScan(mountId, onScan, boxSize=300){
   const cfg = { fps:10, qrbox:{ width:boxSize, height:boxSize } };
   const scanner = new Html5Qrcode(mountId);
@@ -228,11 +228,45 @@ async function startBackCameraScan(mountId, onScan, boxSize=300){
 function fillIoForm(it){ qs('#io-code').value=it.code||''; qs('#io-name').value=it.name||''; qs('#io-price').value=it.price||''; qs('#io-stock').value=it.stock||''; }
 async function startIoScan(){ try{ state.ioScanner=await startBackCameraScan('io-scan-area', onScanIo, (isMobile()?240:300)); }catch(e){ alert('カメラが見つかりません: '+(e?.message||e)) } }
 async function stopIoScan(){ try{ await state.ioScanner?.stop(); state.ioScanner?.clear(); }catch(_){ } state.ioScanner=null; }
-function onScanIo(text){ try{ let code=''; if(text.startsWith('ITEM|')) code=text.split('|')[1]||''; else { try{ const o=JSON.parse(text); code=o.code||''; }catch(_){ } } if(code){ const it=state.items.find(x=>String(x.code)===String(code)) || {code, name:'', price:0, stock:0}; fillIoForm(it); qs('#io-qty').focus(); } }catch(_){} }
+function onScanIo(text){
+  try{
+    let code='';
+    if(text.startsWith('ITEM|')) code=text.split('|')[1]||'';
+    else { try{ const o=JSON.parse(text); code=o.code||''; }catch(_){ } }
+    if(code){
+      const it=state.items.find(x=>String(x.code)===String(code)) || {code, name:'', price:0, stock:0};
+      fillIoForm(it); qs('#io-qty').focus();
+    }
+  }catch(_){}
+}
 async function startScanner(){ try{ state.scanner=await startBackCameraScan('scan-area', onScanStocktake, (isMobile()?240:300)); }catch(e){ alert('カメラが見つかりません: '+(e?.message||e)) } }
 async function stopScanner(){ try{ await state.scanner?.stop(); state.scanner?.clear(); }catch(_){ } state.scanner=null; }
-function onScanStocktake(text){ try{ let code=''; if(text.startsWith('ITEM|')) code=text.split('|')[1]||''; else { try{ const o=JSON.parse(text); code=o.code||''; }catch(_){ } } if(code){ const it=state.items.find(x=>String(x.code)===String(code)); pushStocktake(code, it?.name||'', Number(it?.stock||0), Number(it?.stock||0)); } }catch(_){}
-function pushStocktake(code,name,book,real){ const diff=Number(real)-Number(book); state.stocktakeRows.unshift({code,name,book,real,diff}); const tb=qs('#tbl-stocktake'); if(!tb) return; tb.innerHTML=''; state.stocktakeRows.forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.code}</td><td>${r.name}</td><td class="text-end">${fmt(r.book)}</td><td class="text-end">${fmt(r.real)}</td><td class="text-end">${fmt(r.diff)}</td>`; tb.appendChild(tr); }); }
+
+function onScanStocktake(text){
+  try{
+    let code='';
+    if(text.startsWith('ITEM|')) code=text.split('|')[1]||'';
+    else { try{ const o=JSON.parse(text); code=o.code||''; }catch(_){ } }
+    if(code){
+      const it=state.items.find(x=>String(x.code)===String(code));
+      pushStocktake(code, it?.name||'', Number(it?.stock||0), Number(it?.stock||0));
+    }
+  }catch(_){}
+} // <-- FIX: function closed properly!
+
+function pushStocktake(code,name,book,real){
+  const diff=Number(real)-Number(book);
+  state.stocktakeRows.unshift({code,name,book,real,diff});
+  const tb=qs('#tbl-stocktake'); if(!tb) return; tb.innerHTML='';
+  state.stocktakeRows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.code}</td><td>${r.name}</td>
+      <td class="text-end">${fmt(r.book)}</td>
+      <td class="text-end">${fmt(r.real)}</td>
+      <td class="text-end">${fmt(r.diff)}</td>`;
+    tb.appendChild(tr);
+  });
+}
 
 // === events
 window.addEventListener('DOMContentLoaded', async ()=>{
@@ -264,7 +298,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([head+lines],{type:'text/csv'})); a.download='stocktake.csv'; a.click();
   });
 
-  // Items
+  // Items export
   qs('#btn-items-export')?.addEventListener('click', ()=>{
     const head='code,name,price,stock,min\n';
     const lines=state.items.map(r=>[r.code,r.name,r.price,r.stock,r.min].join(',')).join('\n');
