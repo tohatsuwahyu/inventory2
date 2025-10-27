@@ -272,28 +272,73 @@ function renderItems(){
 }
 
 function renderUsers(){
-  const btnAdd = qs('#btn-open-new-user');
-  if (state.currentUser.role === 'admin') btnAdd?.classList.remove('d-none'); else btnAdd?.classList.add('d-none');
+  const isAdmin = String(state.currentUser.role||'').toLowerCase() === 'admin';
 
-  const tb = qs('#tbl-userqr'); if(!tb) return;
+  // Tampilkan/semmbunyikan tombol sesuai role
+  const btnAdd   = qs('#btn-open-new-user');
+  const btnPrint = qs('#btn-print-qr-users');
+  if (isAdmin){ btnAdd?.classList.remove('d-none'); btnPrint?.classList.remove('d-none'); }
+  else        { btnAdd?.classList.add('d-none');    btnPrint?.classList.add('d-none'); }
+
+  const tb   = qs('#tbl-userqr'); if(!tb) return;
   tb.innerHTML = '';
   const grid = qs('#print-qr-users-grid'); if (grid) grid.innerHTML = '';
 
-  state.users.forEach(u=>{
-    const idStr = String(u.id||'');
+  // Admin: lihat semua user; User biasa: hanya dirinya
+  const list = isAdmin
+    ? state.users
+    : state.users.filter(u => String(u.id) === String(state.currentUser.id));
+
+  list.forEach(u=>{
+    const idStr    = String(u.id||'');
     const holderId = `uqr-${idStr.replace(/[^\w\-:.]/g,'_')}`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="qr-cell"><div id="${holderId}"></div></td>
       <td>${u.id||''}</td>
       <td>${u.name||''}</td>
-      <td>${u.role||'user'}</td>`;
+      <td>${u.role||'user'}</td>
+      <td class="text-end">
+        ${isAdmin ? `<button class="btn btn-sm btn-outline-secondary" data-act="dl" data-id="${holderId}"><i class="bi bi-download"></i></button>` : ``}
+      </td>`;
     tb.appendChild(tr);
 
+    // Render QR pada sel tabel
     const div = document.getElementById(holderId);
     if (div && typeof QRCode !== 'undefined') {
       new QRCode(div, { text: userQrText(idStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
     }
+
+    // Kartu untuk cetak A4 hanya untuk admin
+    if (isAdmin && grid){
+      const card  = document.createElement('div');
+      const v     = document.createElement('div'); v.id = `p-${holderId}`;
+      const title = document.createElement('div'); title.className='title';
+      title.textContent = `${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
+      card.appendChild(v); card.appendChild(title); grid.appendChild(card);
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(v, { text: userQrText(idStr), width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
+      }
+    }
+  });
+
+  // Download QR (admin)
+  tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const holder = document.getElementById(btn.getAttribute('data-id'));
+      const canvas = holder?.querySelector('canvas');
+      const img    = holder?.querySelector('img');
+      const data   = canvas?.toDataURL?.('image/png') || img?.src || '';
+      if (!data) return;
+      const a = document.createElement('a');
+      a.href = data;
+      a.download = `QR_${btn.getAttribute('data-id').replace(/^uqr-/,'')}.png`;
+      a.click();
+    });
+  });
+}
+
 
     const card=document.createElement('div'); card.className='qr-card';
     const v=document.createElement('div'); v.id=`p-${holderId}`;
