@@ -1,5 +1,5 @@
 /*************************************************
- * app.js — Inventory Dashboard
+ * app.js — Inventory Dashboard (UI-upgrade)
  **************************************************/
 
 // === Auth guard
@@ -17,7 +17,9 @@ const qs  = (s, el=document)=>el.querySelector(s);
 const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 const fmt = (n)=>new Intl.NumberFormat('ja-JP').format(n ?? 0);
 const isMobile = ()=> window.innerWidth < 992;
+const today = ()=> new Date();
 
+// brand logo
 (function setBrand(){ try{
   const url = (window.CONFIG && CONFIG.LOGO_URL) || './assets/tsh.png';
   const img = qs('#brand-logo'); if(img) img.src = url;
@@ -30,20 +32,23 @@ function showView(id, title){
     sec.classList.toggle('d-none', !on);
     requestAnimationFrame(()=>sec.classList.toggle('active', on));
   });
-  qsa('.sidebar nav a').forEach(a=>a.classList.toggle('active', a.getAttribute('data-view')===id));
+  qsa('aside nav a').forEach(a=>a.classList.toggle('active', a.getAttribute('data-view')===id));
   if (title) setTitle(title);
   if (isMobile()) openMenu(false);
 }
 function updateWho(){ const u=state.currentUser; const el=qs('#who'); if(el) el.textContent=`${u.name}（${u.id}｜${u.role||'user'}）`; }
 
-// === mobile drawer
+// === mobile drawer (kompatibel id lama/baru)
 function openMenu(open){
-  const sb=qs('.sidebar'); const bd=qs('#backdrop');
-  if(open){ sb.classList.add('open'); bd.classList.add('show'); document.body.style.overflow='hidden'; }
-  else{ sb.classList.remove('open'); bd.classList.remove('show'); document.body.style.overflow=''; }
+  const sb = qs('#sb') || qs('.sidebar');
+  const bd = qs('#sb-backdrop') || qs('#backdrop');
+  if(open){ sb?.classList.add('show','open'); bd?.classList.add('show'); document.body.classList.add('overflow-hidden'); }
+  else{ sb?.classList.remove('show','open'); bd?.classList.remove('show'); document.body.classList.remove('overflow-hidden'); }
 }
-qs('#btn-menu')?.addEventListener('click', ()=>openMenu(true));
-qs('#backdrop')?.addEventListener('click', ()=>openMenu(false));
+['#burger','#btn-menu'].forEach(id=>{
+  qs(id)?.addEventListener('click', (e)=>{ e.preventDefault(); openMenu(true); });
+});
+(qs('#sb-backdrop')||qs('#backdrop'))?.addEventListener('click', ()=>openMenu(false));
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') openMenu(false); });
 
 // === API — robust + logging
@@ -97,18 +102,39 @@ async function loadAll(){
     state.history = normArr(history, 'history');
     state.monthly = normArr(monthly, 'series');
 
-    renderMetrics(); renderMonthlyChart();
+    renderMetrics();
+    renderMonthlyChart();
+    renderPieThisMonth();
+    renderMovementsThisMonth();
     renderItems(); renderUsers(); renderHistory();
   }catch(err){
     alert('Gagal ambil data dari backend.\nCek Console untuk detail dan periksa config.js / deployment GAS.');
   }
 }
 
+function parseTs(s){
+  // s contoh: 'yyyy-MM-dd HH:mm' (lihat GAS historyList)
+  if(!s) return null;
+  const p = s.replace(' ','T');
+  const d = new Date(p);
+  return isNaN(+d) ? null : d;
+}
+
 function renderMetrics(){
+  // total items
   qs('#metric-total-items').textContent = fmt(state.items.length);
+  // stok <= min
   qs('#metric-low-stock').textContent  = fmt(state.items.filter(i=>Number(i.stock||0)<=Number(i.min||0)).length);
+  // users
   qs('#metric-users').textContent      = fmt(state.users.length);
-  qs('#metric-txn').textContent        = fmt(state.history.slice(-200).length);
+  // transaksi 30 hari terakhir
+  const now = today();
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+  const last30 = state.history.filter(h=>{
+    const d = parseTs(h.timestamp);
+    return d && d >= cutoff;
+  });
+  qs('#metric-txn').textContent = fmt(last30.length);
 }
 
 let monthlyChart;
@@ -122,8 +148,72 @@ function renderMonthlyChart(){
         {label:'IN',  data: state.monthly.map(m=>m.in||0)},
         {label:'OUT', data: state.monthly.map(m=>m.out||0)}
       ]},
-    options:{ responsive:true, scales:{ y:{ beginAtZero:true } } }
+    options:{ responsive:true, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:true } } }
   });
+}
+
+let pieChart;
+function renderPieThisMonth(){
+  const el = qs('#chart-pie'); if(!el) return;
+  pieChart?.destroy?.();
+
+  const now = today();
+  const ym   = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let IN=0, OUT=0;
+  state.history.forEach(h=>{
+    const d = parseTs(h.timestamp); if(!d) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(key!==ym) return;
+    const qty = Number(h.qty||0);
+    if(String(h.type)==='IN') IN += qty; else OUT += qty;
+  });
+
+  pieChart = new Chart(el, {
+    type:'pie',
+    data:{ labels:['IN','OUT'], datasets:[{ data:[IN, OUT] }] },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+  });
+}
+
+function renderMovementsThisMonth(){
+  const tb = qs('#tbl-mov'); if(!tb) return;
+  tb.innerHTML = '';
+
+  const now = today();
+  const ym   = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  const byCode = new Map();
+  state.history.forEach(h=>{
+    const d = parseTs(h.timestamp); if(!d) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(key!==ym) return;
+    const code = String(h.code||'');
+    const item = byCode.get(code) || { code, name:'', IN:0, OUT:0 };
+    const it = state.items.find(x=>String(x.code)===code);
+    item.name = it?.name || item.name;
+    const qty = Number(h.qty||0);
+    if(String(h.type)==='IN') item.IN += qty; else item.OUT += qty;
+    byCode.set(code, item);
+  });
+
+  const rows = [...byCode.values()].sort((a,b)=> (b.IN + b.OUT) - (a.IN + a.OUT));
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.code}</td>
+      <td>${r.name}</td>
+      <td class="text-end">${fmt(r.IN)}</td>
+      <td class="text-end">${fmt(r.OUT)}</td>
+      <td class="text-end">${fmt(r.IN - r.OUT)}</td>`;
+    tb.appendChild(tr);
+  });
+
+  // export CSV
+  qs('#btn-export-mov')?.addEventListener('click', ()=>{
+    const head='code,name,IN,OUT,NET\n';
+    const lines = rows.map(r=>[r.code, r.name, r.IN, r.OUT, r.IN - r.OUT].join(',')).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([head+lines],{type:'text/csv'})); a.download='movements_this_month.csv'; a.click();
+  }, { once:true });
 }
 
 /* === QR === */
@@ -141,7 +231,7 @@ function renderItems(){
       <td class="qr-cell"><div id="${idHolder}"></div></td>
       <td>${codeStr}</td>
       <td>${i.name||''}</td>
-      <td>${i.img ? `<img class="thumb" src="${i.img}">` : ''}</td>
+      <td>${i.img ? `<img class="thumb" src="${i.img}" alt="">` : ''}</td>
       <td class="text-end">¥${fmt(i.price||0)}</td>
       <td class="text-end">${fmt(i.stock||0)}</td>
       <td class="text-end">${fmt(i.min||0)}</td>
@@ -170,6 +260,15 @@ function renderItems(){
       const a=document.createElement('a'); a.href=dataUrl; a.download=`QR_${hid.replace(/^qr-/,'')}.png`; a.click();
     });
   });
+
+  // Ekspor Excel (XLSX)
+  qs('#btn-items-xlsx')?.addEventListener('click', ()=>{
+    const data = state.items.map(r=>({ code:r.code, name:r.name, price:r.price, stock:r.stock, min:r.min }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Items');
+    XLSX.writeFile(wb, 'items.xlsx');
+  }, { once:true });
 }
 
 function renderUsers(){
@@ -201,7 +300,7 @@ function renderUsers(){
     const title=document.createElement('div'); title.className='title'; title.textContent=`${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
     card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
     if (typeof QRCode !== 'undefined') {
-      new QRCode(v,{ text: userQrText(idStr), width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+      new QRCode(v,{ text: userQrText(idStr), width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
     }
   });
 }
@@ -273,7 +372,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   updateWho();
 
   // nav
-  qsa('.sidebar nav a').forEach(a=>a.addEventListener('click',()=>showView(a.getAttribute('data-view'), a.textContent.trim())));
+  qsa('aside nav a').forEach(a=>a.addEventListener('click',()=>showView(a.getAttribute('data-view'), a.textContent.trim())));
 
   // logout
   qs('#btn-logout')?.addEventListener('click',()=>{ localStorage.removeItem('currentUser'); location.href='index.html'; });
@@ -298,14 +397,14 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([head+lines],{type:'text/csv'})); a.download='stocktake.csv'; a.click();
   });
 
-  // Items export
+  // Items export CSV
   qs('#btn-items-export')?.addEventListener('click', ()=>{
     const head='code,name,price,stock,min\n';
     const lines=state.items.map(r=>[r.code,r.name,r.price,r.stock,r.min].join(',')).join('\n');
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([head+lines],{type:'text/csv'})); a.download='items.csv'; a.click();
   });
 
-  // Modal Item (pakai ELEMENT, bukan string)
+  // Modal Item
   const modalItemEl = document.getElementById('dlg-new-item');
   const modalItem   = modalItemEl ? new bootstrap.Modal(modalItemEl) : null;
   qs('#btn-open-new-item')?.addEventListener('click', ()=>{
