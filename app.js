@@ -1,21 +1,10 @@
 /*************************************************
  * app.js  —  Inventory Dashboard (FULL)
- * Dibuat untuk bekerja dengan Code.gs kamu (items, users, history,
- * statsMonthlySeries, addUser, addItem, log).
- *
- * Dependencies yang harus ada di dashboard.html:
- *  - config.js (sebelum app.js)
- *  - Chart.js
- *  - qrlib.js (QRCode)
- *  - html5-qrcode (CDN) untuk pemindaian QR:
- *      <script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
  **************************************************/
 
-// ===== Guard: harus login =====
 const saved = localStorage.getItem('currentUser');
 if (!saved) location.href = 'index.html';
 
-// ===== State =====
 const state = {
   currentUser: JSON.parse(saved),
   items: [], users: [], history: [], monthly: [],
@@ -25,7 +14,6 @@ const state = {
   _mov: []
 };
 
-// ===== Helpers =====
 const qs  = (s, el=document)=>el.querySelector(s);
 const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 function fmt(n){ return new Intl.NumberFormat('ja-JP').format(n ?? 0); }
@@ -40,7 +28,11 @@ function showLoading(on, text){
   el.classList.toggle('d-none', !on);
 }
 
-// ===== Brand & user label =====
+/* ===== Sidebar control (mobile) ===== */
+function openSidebar(){ qs('#sb')?.classList.add('show'); qs('#sb-backdrop')?.classList.add('show'); document.body.classList.add('overflow-hidden'); }
+function closeSidebar(){ qs('#sb')?.classList.remove('show'); qs('#sb-backdrop')?.classList.remove('show'); document.body.classList.remove('overflow-hidden'); }
+function toggleSidebar(){ const sb=qs('#sb'); sb?.classList.contains('show') ? closeSidebar() : openSidebar(); }
+
 (function setBrand(){
   try{
     const url = (window.CONFIG && (CONFIG.LOGO_URL||'./assets/tsh.png')) || './assets/tsh.png';
@@ -53,7 +45,6 @@ function showLoading(on, text){
   if (el) el.innerHTML = `${u.name} <small class="ms-1">（${u.id}｜${u.role||'user'}）</small>`;
 })();
 
-// ===== Robust API =====
 async function api(action, { method='GET', body } = {}){
   if (!window.CONFIG || !CONFIG.BASE_URL) {
     alert('config.js tidak terbaca (BASE_URL kosong).'); 
@@ -83,19 +74,17 @@ async function api(action, { method='GET', body } = {}){
   }
 }
 
-// ===== Tambahan: pastikan lib QRCode tersedia =====
 async function ensureQRCode(){
   if (window.QRCode) return;
   await new Promise((resolve)=>{
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
     s.onload = resolve;
-    s.onerror = resolve; // tetap lanjut agar app tidak macet
+    s.onerror = resolve;
     document.head.appendChild(s);
   });
 }
 
-// ===== LOAD =====
 async function loadAll(){
   showLoading(true, '読み込み中…');
 
@@ -124,7 +113,6 @@ async function loadAll(){
   showLoading(false);
 }
 
-// ===== METRICS =====
 function renderMetrics(){
   const low   = state.items.filter(i=>Number(i.stock||0)<=Number(i.min||0)).length;
   const lastN = state.history.slice(-200).length;
@@ -134,7 +122,6 @@ function renderMetrics(){
   qs('#metric-txn').textContent        = fmt(lastN);
 }
 
-// ===== CHARTS =====
 function renderMonthlyChart(){
   const el = qs('#chart-monthly'); if(!el) return;
   state.monthlyChart?.destroy?.();
@@ -171,9 +158,9 @@ function renderPieChart(){
   });
 }
 
-// ===== ITEMS (with QR) =====
-function itemQrPayload(i){
-  return JSON.stringify({ t:'item', code:String(i.code||''), name:String(i.name||''), price:Number(i.price||0) });
+/* ===== ITEMS (with QR) ===== */
+function itemQrPayloadShort(i){
+  return JSON.stringify({ t:'item', code:String(i.code||'') });
 }
 function renderItems(){
   const tb = qs('#tbl-items'); if(!tb) return;
@@ -194,12 +181,13 @@ function renderItems(){
       </td>`;
     tb.appendChild(tr);
 
-    // generate QR setelah node terpasang di DOM
     const div = qs(`#qr-${CSS.escape(String(i.code||''))}`);
-    if (div && window.QRCode) new QRCode(div,{ text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    if (div){
+      div.innerHTML = '';
+      if (window.QRCode) new QRCode(div,{ text:itemQrPayloadShort(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    }
   });
 
-  // download QR png
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const code = btn.getAttribute('data-code');
@@ -211,7 +199,6 @@ function renderItems(){
   });
 }
 
-// ===== USERS + QR =====
 function renderUsers(){
   const btnAdd = qs('#btn-open-new-user');
   if (state.currentUser.role === 'admin') btnAdd?.classList.remove('d-none');
@@ -232,11 +219,12 @@ function renderUsers(){
       <td>${u.role||'user'}</td>`;
     tb.appendChild(tr);
 
-    // tabel
     const div = qs(`#uqr-${CSS.escape(String(u.id||''))}`);
-    if (div && window.QRCode) new QRCode(div,{ text:payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    if (div){
+      div.innerHTML='';
+      if (window.QRCode) new QRCode(div,{ text:payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    }
 
-    // kartu cetak A4
     const card = document.createElement('div'); card.className='qr-card';
     card.style.cssText = 'border:1px solid #e5e7eb;border-radius:12px;padding:12px;text-align:center';
     const v = document.createElement('div'); v.id=`puqr-${u.id}`;
@@ -247,7 +235,6 @@ function renderUsers(){
   });
 }
 
-// ===== HISTORY =====
 function renderHistory(){
   const tb = qs('#tbl-history'); if(!tb) return; tb.innerHTML='';
   state.history.slice(-500).reverse().forEach(h=>{
@@ -263,7 +250,6 @@ function renderHistory(){
   });
 }
 
-// ===== This Month movement per item + CSV =====
 function computeMovementsThisMonth(){
   const now=new Date(); const start=new Date(now.getFullYear(),now.getMonth(),1);
   const byCode={};
@@ -303,12 +289,11 @@ function exportCsv(filename, rows, headers){
   downloadText(filename, head+body);
 }
 
-// ===== STOCKTAKE (scan) =====
+/* ===== STOCKTAKE ===== */
 async function getBackCameraId(){
   try{
     const cams = await Html5Qrcode.getCameras();
     if(!cams || !cams.length) return null;
-    // Prioritaskan kamera belakang
     const back = cams.find(c => /back|rear|environment/i.test(c.label));
     return (back || cams[0]).id;
   }catch{ return null; }
@@ -328,7 +313,7 @@ function onScanStocktake(text){
     const o = JSON.parse(text);
     if(o.t==='item' && o.code){
       const it = state.items.find(x=>String(x.code)===String(o.code));
-      pushStocktake(it?.code||o.code, it?.name||o.name||'', Number(it?.stock||0), Number(it?.stock||0));
+      pushStocktake(it?.code||o.code, it?.name||'', Number(it?.stock||0), Number(it?.stock||0));
     }
   }catch(_){}
   finally{ showLoading(false); }
@@ -360,7 +345,7 @@ function exportStocktake(){
   downloadText('stocktake.csv', head+lines.join('\n'));
 }
 
-// ===== IN/OUT (QR) =====
+/* ===== IN/OUT (QR) ===== */
 async function startIoScan(){
   const id = await getBackCameraId(); if(!id){ alert('カメラが見つかりません'); return; }
   state.ioScanner = new Html5Qrcode('io-scan-area');
@@ -388,7 +373,7 @@ function fillIoForm(it){
   qs('#io-stock').value = it.stock||'';
 }
 
-// ===== New Item helper =====
+/* ===== New Item helper ===== */
 function nextItemCode(){
   const nums = state.items
     .map(i=>String(i.code||'').trim())
@@ -415,19 +400,22 @@ function previewItemQr(i){
   tmp.remove();
 }
 
-// ===== EVENTS =====
+/* ===== EVENTS ===== */
 window.addEventListener('DOMContentLoaded', async ()=>{
-  // Pastikan lib QRCode ada sebelum render tabel
   await ensureQRCode();
+
+  // Sidebar controls (mobile)
+  const burger = qs('#burger');
+  const backdrop = qs('#sb-backdrop');
+  ['click','touchstart'].forEach(ev=>burger?.addEventListener(ev, (e)=>{ e.preventDefault(); toggleSidebar(); }, {passive:false}));
+  ['click','touchstart'].forEach(ev=>backdrop?.addEventListener(ev, (e)=>{ e.preventDefault(); closeSidebar(); }, {passive:false}));
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSidebar(); });
 
   // sidebar nav
   qsa('.sidebar a.nav-link').forEach(a=>a.addEventListener('click',()=>{
     const id=a.getAttribute('data-view'); showView(id, a.textContent.trim());
-    document.getElementById('sb')?.classList.remove('show');
+    closeSidebar();
   }));
-
-  // burger (mobile)
-  qs('#burger')?.addEventListener('click', ()=>qs('#sb')?.classList.toggle('show'));
 
   // logout
   qs('#btn-logout')?.addEventListener('click',()=>{ localStorage.removeItem('currentUser'); location.href='index.html'; });
@@ -515,7 +503,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     qs('#print-qr-users')?.classList.remove('d-none'); window.print(); qs('#print-qr-users')?.classList.add('d-none');
   });
 
-  // Movements CSV (bulan berjalan)
+  // Movements CSV
   qs('#btn-export-mov')?.addEventListener('click', ()=>{
     const rows = state._mov || computeMovementsThisMonth();
     exportCsv('movements_this_month.csv', rows, ['code','name','in','out','net']);
