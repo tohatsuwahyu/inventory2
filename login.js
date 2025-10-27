@@ -1,158 +1,164 @@
-// ===== Helpers =====
-const $ = (sel, el=document)=>el.querySelector(sel);
+/*************************************************
+ * login.js — Login biasa & via QR
+ * - Tahan eksekusi sampai DOM & config siap
+ * - API retry + backoff utk first-load smartphone
+ **************************************************/
 
-function showLoading(on, text){
-  const el = document.getElementById('global-loading');
-  const t  = document.getElementById('loading-text');
-  if (!el) return;
-  if (text) t.textContent = text;
-  el.classList.toggle('d-none', !on);
+// ===== Utilities
+const qs  = (s, el=document)=>el.querySelector(s);
+const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
+
+function setLoading(show, text){
+  const box = qs('#global-loading'); if(!box) return;
+  const label = qs('#loading-text');
+  if (text && label) label.textContent = text;
+  box.classList.toggle('d-none', !show);
 }
 
-// ===== API (sesuai Code.gs) =====
-async function api(action, {method='GET', body} = {}){
-  if (!CONFIG || !CONFIG.BASE_URL) throw new Error('BASE_URL not set in config.js');
-  const apikey = encodeURIComponent(CONFIG.API_KEY || '');
-  const url    = `${CONFIG.BASE_URL}?action=${encodeURIComponent(action)}&apikey=${apikey}`;
-
-  if (method === 'GET'){
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
+async function waitConfigReady(maxMs=1200){
+  const started = Date.now();
+  while ((!window.CONFIG || !CONFIG.BASE_URL) && (Date.now()-started) < maxMs){
+    await sleep(100);
   }
+  if (!window.CONFIG || !CONFIG.BASE_URL){
+    throw new Error('config.js belum siap (BASE_URL kosong)');
+  }
+}
 
-  // Penting: text/plain dan apikey ikut di body
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type':'text/plain;charset=utf-8' },
+// API dengan retry (3x) dan backoff bertahap
+async function api(action, {method='GET', body}={}){
+  await waitConfigReady(); // pastikan CONFIG siap
+
+  const apikey = encodeURIComponent(CONFIG.API_KEY||'');
+  const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(action)}&apikey=${apikey}&_=${Date.now()}`;
+
+  const optionsGet = { method:'GET', mode:'cors', cache:'no-store' };
+  const optionsPost = {
+    method:'POST',
+    mode:'cors',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
-// ===== Login (ID+PIN) =====
-async function handleLogin(e){
-  e?.preventDefault?.();
-  const id   = $('#login-id').value.trim();
-  const pass = $('#login-pin').value.trim();
-  if (!id){ alert('ユーザーIDを入力してください'); return; }
-
-  try{
-    showLoading(true, 'ログインしています…');
-    const res = await api('login', { method:'POST', body:{ id, pass } });
-    if (!res || res.ok === false){
-      alert(res?.error || 'ログインに失敗しました');
-      return;
-    }
-    localStorage.setItem('currentUser', JSON.stringify(res.user));
-    location.href = 'dashboard.html';
-  }catch(err){
-    alert(String(err.message || err));
-  }finally{
-    showLoading(false);
-  }
-}
-$('#form-login')?.addEventListener('submit', handleLogin);
-
-// ===== QR Login =====
-let qrScanner = null;
-let qrBusy = false;        // <<< hanya dideklarasikan SEKALI
-
-function openQr(){
-  const modal = new bootstrap.Modal('#dlg-qr');
-  modal.show();
-
-  const start = async ()=>{
-    if (!window.Html5Qrcode){
-      const s = document.createElement('script');
-      s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
-      s.onload = begin;
-      document.body.appendChild(s);
-    }else begin();
   };
 
-  const begin = async ()=>{
+  let lastErr;
+  for (let attempt=1; attempt<=3; attempt++){
     try{
-      const cfg = { fps:10, qrbox:{ width:260, height:260 } };
-      qrScanner = new Html5Qrcode('qr-login-area');
-
-      // 1) coba kamera belakang by facingMode
-      try{
-        await qrScanner.start({ facingMode: "environment" }, cfg, onScanQr);
-        return;
-      }catch(_){ /* fallback */ }
-
-      // 2) fallback pilih kamera belakang dari daftar
-      const cams = await Html5Qrcode.getCameras();
-      if (!cams || !cams.length) throw new Error('カメラが見つかりません');
-      const back = cams.find(c => /back|rear|environment/i.test(c.label)) || cams[cams.length-1] || cams[0];
-      await qrScanner.start({ deviceId:{ exact: back.id } }, cfg, onScanQr);
+      const r = await fetch(url, method==='GET' ? optionsGet : optionsPost);
+      if(!r.ok) throw new Error(`[${r.status}] ${r.statusText}`);
+      return await r.json();
     }catch(e){
-      alert('カメラ起動に失敗しました: ' + (e?.message||e));
+      lastErr = e;
+      // jeda kecil untuk warm-up koneksi/izin di mobile in-app browser
+      await sleep(200 * attempt);
     }
+  }
+  throw lastErr || new Error('Fetch gagal');
+}
+
+// Normalisasi respons (fleksibel dengan bentuk GAS)
+function pickUserFromResponse(resp){
+  if (!resp) return null;
+  if (resp.ok === false) throw new Error(resp.error || 'Login gagal');
+  if (resp.user) return resp.user;
+  if (Array.isArray(resp.users) && resp.users[0]) return resp.users[0];
+  if (resp.data && resp.data.user) return resp.data.user;
+  return resp; // fallback: asumsikan objek user langsung
+}
+
+function saveAndGo(user){
+  const u = {
+    id:   String(user.id || user.userId || ''),
+    name: String(user.name || user.displayName || ''),
+    role: String(user.role || 'user')
   };
-
-  setTimeout(start, 150);
+  localStorage.setItem('currentUser', JSON.stringify(u));
+  location.href = 'dashboard.html';
 }
 
-async function onScanQr(text){
-  if (qrBusy) return;
+// ===== QR Login
+let qrModal, qrScanner;
 
-  // ambil ID dari QR
-  let userId = '';
-  if (text.startsWith('USER|')) userId = text.split('|')[1] || '';
-  else {
-    try{ const o = JSON.parse(text); if (o.t === 'user') userId = o.id || ''; }catch(_){}
-  }
-  if (!userId) return;
-
-  qrBusy = true;
+async function startQr(){
+  const mountId = 'qr-login-area';
+  setLoading(false);
   try{
-    try{ await qrScanner?.stop(); qrScanner?.clear(); }catch(_){}
-    qrScanner = null;
-
-    showLoading(true, 'ログインしています…');
-
-    // GET untuk loginById (hindari preflight/CORS)
-    const base = CONFIG.BASE_URL;
-    const qs = new URLSearchParams({
-      action: 'loginById',
-      id: userId,
-      apikey: CONFIG.API_KEY || ''
-    });
-    const r = await fetch(`${base}?${qs.toString()}`);
-    if (!r.ok){
-      const txt = await r.text().catch(()=>r.statusText);
-      throw new Error(`GAS error: ${r.status} ${txt}`);
+    // html5-qrcode sudah diindex.html
+    const cfg = { fps:10, qrbox:{width:250, height:250} };
+    qrScanner = new Html5Qrcode(mountId);
+    await qrScanner.start({ facingMode:'environment' }, cfg, onScan);
+  }catch(e){
+    console.error('QR start error:', e);
+    alert('Failed to start camera. Coba gunakan kamera belakang dan izinkan akses.');
+  }
+}
+async function stopQr(){
+  try{ await qrScanner?.stop(); qrScanner?.clear(); }catch(_){}
+  qrScanner = null;
+}
+async function onScan(text){
+  try{
+    // format QR untuk user dari app: "USER|<ID>"
+    let userId = '';
+    if (text.startsWith('USER|')) userId = text.split('|')[1] || '';
+    else {
+      try { const o = JSON.parse(text); userId = o.userId || o.id || ''; } catch(_){}
     }
-    const res = await r.json();
-    if (!res || res.ok === false) throw new Error(res?.error || 'QRログインに失敗しました');
+    if (!userId) return;
 
-    localStorage.setItem('currentUser', JSON.stringify(res.user));
-    location.href = 'dashboard.html';
+    setLoading(true, 'QR 認証中…');
+    const resp = await api('login', { method:'POST', body:{ id:userId, pin:'' } });
+    const user = pickUserFromResponse(resp);
+    await stopQr();
+    saveAndGo(user);
   }catch(err){
-    alert(`Failed to fetch (QR): ${err?.message || err}\n\nBASE_URL(/exec)・API_KEY・WebApp権限をご確認ください。`);
+    await stopQr();
+    // Tampilkan pesan yang lebih informatif, tanpa menakut-nakuti user
+    alert('Failed to fetch (QR): Load failed\nBASE_URL／API_KEY／WebApp権限をご確認ください。\n\nDetail: ' + (err?.message||err));
   }finally{
-    showLoading(false);
-    qrBusy = false;
+    setLoading(false);
   }
 }
 
-document.getElementById('link-qr')?.addEventListener('click', (e)=>{ e.preventDefault(); openQr(); });
-document.getElementById('btn-qr')?.addEventListener('click', openQr);
+// ===== Normal login (ID + PIN)
+async function handleLoginSubmit(e){
+  e.preventDefault();
+  const id  = qs('#login-id').value.trim();
+  const pin = qs('#login-pin').value.trim();
 
-// ===== Brand init ringan (fallback) =====
-(function initBrand(){
+  if (!id){ alert('ユーザーIDを入力してください。'); return; }
+
+  setLoading(true, 'ログイン中…');
+  try{
+    const resp = await api('login', { method:'POST', body:{ id, pin } });
+    const user = pickUserFromResponse(resp);
+    saveAndGo(user);
+  }catch(err){
+    alert('ログインに失敗しました: ' + (err?.message||err));
+  }finally{
+    setLoading(false);
+  }
+}
+
+// ===== Init
+window.addEventListener('DOMContentLoaded', ()=>{
+  // Modal setup
+  const modalEl = document.getElementById('dlg-qr');
+  if (modalEl && window.bootstrap){
+    qrModal = new bootstrap.Modal(modalEl);
+    modalEl.addEventListener('hidden.bs.modal', stopQr);
+    modalEl.addEventListener('shown.bs.modal', startQr);
+  }
+
+  // Tombol/Link QR
+  qs('#btn-qr')?.addEventListener('click', (e)=>{ e.preventDefault(); qrModal?.show(); });
+  qs('#link-qr')?.addEventListener('click', (e)=>{ e.preventDefault(); qrModal?.show(); });
+
+  // Submit form normal
+  qs('#form-login')?.addEventListener('submit', handleLoginSubmit);
+
+  // Ganti logo dari config (fallback disiapkan di index.html inline)
   try{
     const url = (window.CONFIG && (CONFIG.LOGO_URL||'./assets/tsh.png')) || './assets/tsh.png';
     const img = document.getElementById('brand-logo'); if(img) img.src = url;
   }catch(_){}
-})();
-
-
-
-
-
-
-
+});
