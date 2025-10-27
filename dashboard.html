@@ -273,7 +273,48 @@
         <div id="print-qr-users-grid" class="d-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px"></div>
       </div>
     </div>
-  </section>
+      <!-- 新規ユーザーモーダル -->
+  <div class="modal fade" id="dlg-new-user" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">ユーザーを追加</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="form-user" class="row g-3">
+            <div class="col-12">
+              <label class="form-label">名前</label>
+              <input id="u-name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">ID</label>
+              <input id="u-id" class="form-control" required placeholder="USR001">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">ロール</label>
+              <select id="u-role" class="form-select">
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">PIN（任意）</label>
+              <input id="u-pin" class="form-control" placeholder="1234">
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary w-100">
+                <i class="bi bi-check2-circle me-1"></i> 登録
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section> <!-- <= penutup section tetap ada -->
+
+
 </main>
 
 <!-- Loading -->
