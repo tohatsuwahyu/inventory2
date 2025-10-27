@@ -1,5 +1,5 @@
 /*************************************************
- * app.js — Inventory Dashboard (UI-upgrade, clean)
+ * app.js — Inventory Dashboard (UI-upgrade)
  **************************************************/
 
 // === Auth guard
@@ -18,7 +18,6 @@ const qsa = (s, el=document)=>[...el.querySelectorAll(s)];
 const fmt = (n)=>new Intl.NumberFormat('ja-JP').format(n ?? 0);
 const isMobile = ()=> window.innerWidth < 992;
 const today = ()=> new Date();
-const safeName = (s='')=> String(s).trim().replace(/[^\w\-]+/g,'_').slice(0,60);
 
 // brand logo
 (function setBrand(){ try{
@@ -225,51 +224,40 @@ function renderItems(){
   const tb = qs('#tbl-items'); if(!tb) return;
   tb.innerHTML = '';
   state.items.forEach(i=>{
-    const codeStr  = String(i.code||'');
-    const nameStr  = String(i.name||'');
+    const codeStr = String(i.code||'');
     const idHolder = `qr-${codeStr.replace(/[^\w\-:.]/g,'_')}`;
-    const fileBase = `QR_${codeStr}_${safeName(nameStr)}`;
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell">
-        <div class="qrbox" id="${idHolder}"></div>
-        <div class="small text-muted mt-1">${nameStr || codeStr}</div>
-      </td>
+      <td class="qr-cell"><div id="${idHolder}"></div></td>
       <td>${codeStr}</td>
-      <td>${nameStr}</td>
+      <td>${i.name||''}</td>
       <td>${i.img ? `<img class="thumb" src="${i.img}" alt="">` : ''}</td>
       <td class="text-end">¥${fmt(i.price||0)}</td>
       <td class="text-end">${fmt(i.stock||0)}</td>
       <td class="text-end">${fmt(i.min||0)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${idHolder}" data-fn="${fileBase}">
-          <i class="bi bi-download"></i>
-        </button>
-      </td>`;
+      <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${idHolder}"><i class="bi bi-download"></i></button></td>`;
     tb.appendChild(tr);
 
     const holder = document.getElementById(idHolder);
-    if (holder && typeof QRCode !== 'undefined') {
+    if (holder) {
       holder.innerHTML = '';
-      new QRCode(holder, { text: itemQrText(codeStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(holder, { text: itemQrText(codeStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
+      } else {
+        console.warn('QRCode lib belum termuat');
+      }
     }
   });
 
-  // Download QR item: nama file jelas
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const hid    = btn.getAttribute('data-code');
-      const fname  = (btn.getAttribute('data-fn') || 'QR').replace(/\.+/g,'.');
+      const hid = btn.getAttribute('data-code');
       const holder = document.getElementById(hid);
       const canvas = holder?.querySelector('canvas');
       const img    = holder?.querySelector('img');
       const dataUrl = canvas?.toDataURL?.('image/png') || img?.src || '';
       if(!dataUrl) return;
-      const a=document.createElement('a');
-      a.href=dataUrl;
-      a.download=`${fname}.png`;
-      a.click();
+      const a=document.createElement('a'); a.href=dataUrl; a.download=`QR_${hid.replace(/^qr-/,'')}.png`; a.click();
     });
   });
 
@@ -284,70 +272,36 @@ function renderItems(){
 }
 
 function renderUsers(){
-  const isAdmin = String(state.currentUser.role||'').toLowerCase() === 'admin';
+  const btnAdd = qs('#btn-open-new-user');
+  if (state.currentUser.role === 'admin') btnAdd?.classList.remove('d-none'); else btnAdd?.classList.add('d-none');
 
-  // Tampilkan/sembunyikan tombol sesuai role
-  const btnAdd   = qs('#btn-open-new-user');
-  const btnPrint = qs('#btn-print-qr-users');
-  if (isAdmin){ btnAdd?.classList.remove('d-none'); btnPrint?.classList.remove('d-none'); }
-  else        { btnAdd?.classList.add('d-none');    btnPrint?.classList.add('d-none'); }
-
-  const tb   = qs('#tbl-userqr'); if(!tb) return;
+  const tb = qs('#tbl-userqr'); if(!tb) return;
   tb.innerHTML = '';
   const grid = qs('#print-qr-users-grid'); if (grid) grid.innerHTML = '';
 
-  // Admin: semua user; User biasa: hanya dirinya
-  const list = isAdmin
-    ? state.users
-    : state.users.filter(u => String(u.id) === String(state.currentUser.id));
-
-  list.forEach(u=>{
-    const idStr    = String(u.id||'');
+  state.users.forEach(u=>{
+    const idStr = String(u.id||'');
     const holderId = `uqr-${idStr.replace(/[^\w\-:.]/g,'_')}`;
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div class="qrbox" id="${holderId}"></div></td>
+      <td class="qr-cell"><div id="${holderId}"></div></td>
       <td>${u.id||''}</td>
       <td>${u.name||''}</td>
-      <td>${u.role||'user'}</td>
-      <td class="text-end">
-        ${isAdmin ? `<button class="btn btn-sm btn-outline-secondary" data-act="dl" data-id="${holderId}"><i class="bi bi-download"></i></button>` : ``}
-      </td>`;
+      <td>${u.role||'user'}</td>`;
     tb.appendChild(tr);
 
-    // Render QR pada sel tabel
     const div = document.getElementById(holderId);
     if (div && typeof QRCode !== 'undefined') {
       new QRCode(div, { text: userQrText(idStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
     }
 
-    // Kartu untuk cetak A4 hanya untuk admin
-    if (isAdmin && grid){
-      const card  = document.createElement('div');
-      const v     = document.createElement('div'); v.id = `p-${holderId}`;
-      const title = document.createElement('div'); title.className='title';
-      title.textContent = `${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
-      card.appendChild(v); card.appendChild(title); grid.appendChild(card);
-      if (typeof QRCode !== 'undefined') {
-        new QRCode(v, { text: userQrText(idStr), width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
-      }
+    const card=document.createElement('div'); card.className='qr-card';
+    const v=document.createElement('div'); v.id=`p-${holderId}`;
+    const title=document.createElement('div'); title.className='title'; title.textContent=`${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
+    card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(v,{ text: userQrText(idStr), width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
     }
-  });
-
-  // Download QR (admin)
-  tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const holder = document.getElementById(btn.getAttribute('data-id'));
-      const canvas = holder?.querySelector('canvas');
-      const img    = holder?.querySelector('img');
-      const data   = canvas?.toDataURL?.('image/png') || img?.src || '';
-      if (!data) return;
-      const a = document.createElement('a');
-      a.href = data;
-      a.download = `QR_${btn.getAttribute('data-id').replace(/^uqr-/,'')}.png`;
-      a.click();
-    });
   });
 }
 
@@ -397,7 +351,7 @@ function onScanStocktake(text){
       pushStocktake(code, it?.name||'', Number(it?.stock||0), Number(it?.stock||0));
     }
   }catch(_){}
-}
+} // <-- FIX: function closed properly!
 
 function pushStocktake(code,name,book,real){
   const diff=Number(real)-Number(book);
@@ -430,24 +384,13 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     e.preventDefault();
     const body={ userId:state.currentUser.id, code:qs('#io-code').value.trim(), qty:Number(qs('#io-qty').value||0), unit:qs('#io-unit').value, type:qs('#io-type').value };
     if(!body.code || !body.qty){ alert('コード/数量は必須'); return; }
-    try{
-      const r=await api('log',{method:'POST',body});
-      if(r && r.ok===false) return alert(r.error||'エラー');
-      alert('登録しました');
-      await loadAll();
-      showView('view-history','履歴');
-      fillIoForm({code:'',name:'',price:'',stock:''}); qs('#io-qty').value='';
-    }catch(err){ alert('登録失敗: '+(err?.message||err)); }
+    try{ const r=await api('log',{method:'POST',body}); if(r && r.ok===false) return alert(r.error||'エラー'); alert('登録しました'); await loadAll(); showView('view-history','履歴'); fillIoForm({code:'',name:'',price:'',stock:''}); qs('#io-qty').value=''; }catch(err){ alert('登録失敗: '+(err?.message||err)); }
   });
 
   // Stocktake
   qs('#btn-start-scan')?.addEventListener('click', startScanner);
   qs('#btn-stop-scan')?.addEventListener('click', stopScanner);
-  qs('#st-add')?.addEventListener('click', (e)=>{ e.preventDefault();
-    const code=qs('#st-code').value.trim(); const real=Number(qs('#st-qty').value||0);
-    if(!code) return; const it=state.items.find(x=>String(x.code)===String(code));
-    pushStocktake(code, it?.name||'', Number(it?.stock||0), real);
-  });
+  qs('#st-add')?.addEventListener('click', (e)=>{ e.preventDefault(); const code=qs('#st-code').value.trim(); const real=Number(qs('#st-qty').value||0); if(!code) return; const it=state.items.find(x=>String(x.code)===String(code)); pushStocktake(code, it?.name||'', Number(it?.stock||0), real); });
   qs('#st-export')?.addEventListener('click', ()=>{
     const head='code,name,book,real,diff\n';
     const lines=state.stocktakeRows.map(r=>[r.code,r.name,r.book,r.real,r.diff].join(',')).join('\n');
@@ -477,20 +420,13 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     e.preventDefault();
     const body={ code:qs('#i-code').value.trim(), name:qs('#i-name').value.trim(), price:Number(qs('#i-price').value||0), stock:Number(qs('#i-stock').value||0), min:Number(qs('#i-min').value||0), img:qs('#i-img').value.trim(), overwrite:false };
     if(!body.code || !body.name){ alert('コード/名称は必須'); return; }
-    try{
-      const r=await api('addItem',{method:'POST',body});
-      if(r && r.ok===false) throw new Error(r.error||'登録失敗');
-      modalItem?.hide(); await loadAll(); showView('view-items','商品一覧');
-    }catch(err){ alert(err.message); }
+    try{ const r=await api('addItem',{method:'POST',body}); if(r && r.ok===false) throw new Error(r.error||'登録失敗'); modalItem?.hide(); await loadAll(); showView('view-items','商品一覧'); }catch(err){ alert(err.message); }
   });
   qs('#btn-item-makeqr')?.addEventListener('click', ()=>{
     const i={ code:qs('#i-code').value.trim(), name:qs('#i-name').value.trim(), price:Number(qs('#i-price').value||0) };
-    const tmp=document.createElement('div');
-    if(typeof QRCode!=='undefined'){ new QRCode(tmp,{ text:itemQrText(i.code), width:240, height:240, correctLevel:QRCode.CorrectLevel.M }); }
-    const canvas=tmp.querySelector('canvas'); const dataUrl=canvas?canvas.toDataURL('image/png'):'';
-    const w=window.open('','qrprev','width=420,height=520');
-    w.document.write(`<div style="padding:20px;text-align:center;font-family:sans-serif"><img src="${dataUrl}" style="width:240px;height:240px"/><div style="margin-top:8px">${i.name}（${i.code}） ¥${fmt(i.price||0)}</div></div>`);
-    tmp.remove();
+    const tmp=document.createElement('div'); if(typeof QRCode!=='undefined'){ new QRCode(tmp,{ text:itemQrText(i.code), width:240, height:240, correctLevel:QRCode.CorrectLevel.M }); }
+    const canvas=tmp.querySelector('canvas'); const dataUrl=canvas?canvas.toDataURL('image/png'):''; const w=window.open('','qrprev','width=420,height=520');
+    w.document.write(`<div style="padding:20px;text-align:center;font-family:sans-serif"><img src="${dataUrl}" style="width:240px;height:240px"/><div style="margin-top:8px">${i.name}（${i.code}） ¥${fmt(i.price||0)}</div></div>`); tmp.remove();
   });
 
   // Modal User
@@ -500,15 +436,9 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   qs('#form-user')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const body={ name:qs('#u-name').value.trim(), id:qs('#u-id').value.trim(), role:qs('#u-role').value, pin:qs('#u-pin').value.trim() };
-    try{
-      const r=await api('addUser',{method:'POST',body});
-      if(r && r.ok===false) throw new Error(r.error||'エラー');
-      modalUser?.hide(); await loadAll(); showView('view-users','ユーザー / QR');
-    }catch(err){ alert(err.message); }
+    try{ const r=await api('addUser',{method:'POST',body}); if(r && r.ok===false) throw new Error(r.error||'エラー'); modalUser?.hide(); await loadAll(); showView('view-users','ユーザー / QR'); }catch(err){ alert(err.message); }
   });
-  qs('#btn-print-qr-users')?.addEventListener('click', ()=>{
-    qs('#print-qr-users').classList.remove('d-none'); window.print(); qs('#print-qr-users').classList.add('d-none');
-  });
+  qs('#btn-print-qr-users')?.addEventListener('click', ()=>{ qs('#print-qr-users').classList.remove('d-none'); window.print(); qs('#print-qr-users').classList.add('d-none'); });
 
   // init
   showView('view-dashboard','ダッシュボード');
