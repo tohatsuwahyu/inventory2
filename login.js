@@ -1,18 +1,15 @@
-// ---- Brand & optional BG dari config (aman bila tak ada) ----
-// ---- Brand & optional BG dari config (aman bila tak ada) ----
-(function initBrand(){
-  try{
-    const url = (window.CONFIG && (CONFIG.LOGO_URL||'./assets/tsh.png')) || './assets/tsh.png';
-    const img = document.getElementById('brand-logo'); if(img) img.src = url;
-    if (CONFIG && CONFIG.LOGIN_BG_URL){
-      document.body.classList.add('login-page');
-      document.body.style.background =
-        `linear-gradient(180deg,#0b12241a,#0b122413), url('${CONFIG.LOGIN_BG_URL}') center/cover fixed no-repeat`;
-    }
-  }catch(_){}
-})();
+// ===== Helpers =====
+const $ = (sel, el=document)=>el.querySelector(sel);
 
-// ---- API helper persis seperti yang diharapkan Code.gs ----
+function showLoading(on, text){
+  const el = document.getElementById('global-loading');
+  const t  = document.getElementById('loading-text');
+  if (!el) return;
+  if (text) t.textContent = text;
+  el.classList.toggle('d-none', !on);
+}
+
+// ===== API (sesuai Code.gs) =====
 async function api(action, {method='GET', body} = {}){
   if (!CONFIG || !CONFIG.BASE_URL) throw new Error('BASE_URL not set in config.js');
   const apikey = encodeURIComponent(CONFIG.API_KEY || '');
@@ -24,7 +21,7 @@ async function api(action, {method='GET', body} = {}){
     return r.json();
   }
 
-  // Penting: text/plain + JSON.stringify + apikey di body juga (sesuai Code.gs)
+  // Penting: text/plain dan apikey ikut di body
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type':'text/plain;charset=utf-8' },
@@ -34,9 +31,7 @@ async function api(action, {method='GET', body} = {}){
   return r.json();
 }
 
-const $ = (s, el=document)=>el.querySelector(s);
-
-// ---- Login form (ID + PIN) ----
+// ===== Login (ID+PIN) =====
 async function handleLogin(e){
   e?.preventDefault?.();
   const id   = $('#login-id').value.trim();
@@ -44,6 +39,7 @@ async function handleLogin(e){
   if (!id){ alert('ユーザーIDを入力してください'); return; }
 
   try{
+    showLoading(true, 'ログインしています…');
     const res = await api('login', { method:'POST', body:{ id, pass } });
     if (!res || res.ok === false){
       alert(res?.error || 'ログインに失敗しました');
@@ -53,14 +49,15 @@ async function handleLogin(e){
     location.href = 'dashboard.html';
   }catch(err){
     alert(String(err.message || err));
+  }finally{
+    showLoading(false);
   }
 }
 $('#form-login')?.addEventListener('submit', handleLogin);
 
-// ---- QR Login (format QR: "USER|<ID>")
-// gunakan GET utk menghindari preflight/CORS; plus debounce
+// ===== QR Login =====
 let qrScanner = null;
-let qrBusy = false;
+let qrBusy = false;        // <<< hanya dideklarasikan SEKALI
 
 function openQr(){
   const modal = new bootstrap.Modal('#dlg-qr');
@@ -74,56 +71,56 @@ function openQr(){
       document.body.appendChild(s);
     }else begin();
   };
+
   const begin = async ()=>{
-  try{
-    const cfg = { fps:10, qrbox:{ width:260, height:260 } };
-    qrScanner = new Html5Qrcode('qr-login-area');
-
-    // 1) Coba pakai kamera belakang by facingMode (paling clean)
     try{
-      await qrScanner.start({ facingMode: "environment" }, cfg, onScanQr);
-      return; // sukses
-    }catch(_){ /* lanjut fallback */ }
+      const cfg = { fps:10, qrbox:{ width:260, height:260 } };
+      qrScanner = new Html5Qrcode('qr-login-area');
 
-    // 2) Fallback: pilih kamera belakang dari daftar
-    const cams = await Html5Qrcode.getCameras();
-    if (!cams || !cams.length) throw new Error('カメラが見つかりません');
+      // 1) coba kamera belakang by facingMode
+      try{
+        await qrScanner.start({ facingMode: "environment" }, cfg, onScanQr);
+        return;
+      }catch(_){ /* fallback */ }
 
-    const back = cams.find(c => /back|rear|environment/i.test(c.label)) 
-              || cams[cams.length - 1]                      // biasanya belakang di posisi terakhir
-              || cams[0];
-
-    await qrScanner.start({ deviceId:{ exact: back.id } }, cfg, onScanQr);
-  }catch(e){
-    alert('カメラ起動に失敗しました: ' + (e?.message||e));
-  }
-};
+      // 2) fallback pilih kamera belakang dari daftar
+      const cams = await Html5Qrcode.getCameras();
+      if (!cams || !cams.length) throw new Error('カメラが見つかりません');
+      const back = cams.find(c => /back|rear|environment/i.test(c.label)) || cams[cams.length-1] || cams[0];
+      await qrScanner.start({ deviceId:{ exact: back.id } }, cfg, onScanQr);
+    }catch(e){
+      alert('カメラ起動に失敗しました: ' + (e?.message||e));
+    }
+  };
 
   setTimeout(start, 150);
 }
 
-let qrBusy = false; // tetap ada debounce
-
 async function onScanQr(text){
   if (qrBusy) return;
+
+  // ambil ID dari QR
   let userId = '';
   if (text.startsWith('USER|')) userId = text.split('|')[1] || '';
-  else { try{ const o = JSON.parse(text); if (o.t === 'user') userId = o.id || ''; }catch(_){}
+  else {
+    try{ const o = JSON.parse(text); if (o.t === 'user') userId = o.id || ''; }catch(_){}
   }
   if (!userId) return;
 
   qrBusy = true;
   try{
-    // hentikan kamera dulu
     try{ await qrScanner?.stop(); qrScanner?.clear(); }catch(_){}
     qrScanner = null;
 
-    // TAMPILKAN LOADING
     showLoading(true, 'ログインしています…');
 
-    // GET loginById (seperti versi sebelumnya yang sudah aman CORS)
+    // GET untuk loginById (hindari preflight/CORS)
     const base = CONFIG.BASE_URL;
-    const qs = new URLSearchParams({ action:'loginById', id:userId, apikey: CONFIG.API_KEY || '' });
+    const qs = new URLSearchParams({
+      action: 'loginById',
+      id: userId,
+      apikey: CONFIG.API_KEY || ''
+    });
     const r = await fetch(`${base}?${qs.toString()}`);
     if (!r.ok){
       const txt = await r.text().catch(()=>r.statusText);
@@ -135,13 +132,27 @@ async function onScanQr(text){
     localStorage.setItem('currentUser', JSON.stringify(res.user));
     location.href = 'dashboard.html';
   }catch(err){
-    alert(`Failed to fetch (QR): ${err?.message || err}`);
+    alert(`Failed to fetch (QR): ${err?.message || err}\n\nBASE_URL(/exec)・API_KEY・WebApp権限をご確認ください。`);
   }finally{
     showLoading(false);
     qrBusy = false;
   }
 }
 
-
 document.getElementById('link-qr')?.addEventListener('click', (e)=>{ e.preventDefault(); openQr(); });
 document.getElementById('btn-qr')?.addEventListener('click', openQr);
+
+// ===== Brand init ringan (fallback) =====
+(function initBrand(){
+  try{
+    const url = (window.CONFIG && (CONFIG.LOGO_URL||'./assets/tsh.png')) || './assets/tsh.png';
+    const img = document.getElementById('brand-logo'); if(img) img.src = url;
+  }catch(_){}
+})();
+
+
+
+
+
+
+
