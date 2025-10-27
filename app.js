@@ -274,20 +274,17 @@ function renderItems(){
 function renderUsers(){
   const isAdmin = String(state.currentUser.role||'').toLowerCase() === 'admin';
 
-  // Tampilkan/semmbunyikan tombol sesuai role
   const btnAdd   = qs('#btn-open-new-user');
   const btnPrint = qs('#btn-print-qr-users');
   if (isAdmin){ btnAdd?.classList.remove('d-none'); btnPrint?.classList.remove('d-none'); }
   else        { btnAdd?.classList.add('d-none');    btnPrint?.classList.add('d-none'); }
 
-  const tb   = qs('#tbl-userqr'); if(!tb) return;
+  const tb = qs('#tbl-userqr'); if(!tb) return;
   tb.innerHTML = '';
   const grid = qs('#print-qr-users-grid'); if (grid) grid.innerHTML = '';
 
-  // Admin: lihat semua user; User biasa: hanya dirinya
-  const list = isAdmin
-    ? state.users
-    : state.users.filter(u => String(u.id) === String(state.currentUser.id));
+  const list = isAdmin ? state.users
+                       : state.users.filter(u => String(u.id) === String(state.currentUser.id));
 
   list.forEach(u=>{
     const idStr    = String(u.id||'');
@@ -304,13 +301,13 @@ function renderUsers(){
       </td>`;
     tb.appendChild(tr);
 
-    // Render QR pada sel tabel
+    // QR di tabel
     const div = document.getElementById(holderId);
     if (div && typeof QRCode !== 'undefined') {
       new QRCode(div, { text: userQrText(idStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
     }
 
-    // Kartu untuk cetak A4 hanya untuk admin
+    // Kartu cetak A4 (admin saja)
     if (isAdmin && grid){
       const card  = document.createElement('div');
       const v     = document.createElement('div'); v.id = `p-${holderId}`;
@@ -340,15 +337,8 @@ function renderUsers(){
 }
 
 
-    const card=document.createElement('div'); card.className='qr-card';
-    const v=document.createElement('div'); v.id=`p-${holderId}`;
-    const title=document.createElement('div'); title.className='title'; title.textContent=`${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
-    card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
-    if (typeof QRCode !== 'undefined') {
-      new QRCode(v,{ text: userQrText(idStr), width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
-    }
-  });
-}
+
+   
 
 function renderHistory(){
   const tb=qs('#tbl-history'); if(!tb) return; tb.innerHTML='';
