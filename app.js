@@ -219,47 +219,63 @@ function renderMovementsThisMonth(){
 /* === QR === */
 const itemQrText = (code)=>`ITEM|${String(code||'')}`;
 const userQrText = (id)=>`USER|${String(id||'')}`;
+const safeName = (s='')=> String(s).trim().replace(/[^\w\-]+/g,'_').slice(0,60);
 
 function renderItems(){
   const tb = qs('#tbl-items'); if(!tb) return;
   tb.innerHTML = '';
   state.items.forEach(i=>{
-    const codeStr = String(i.code||'');
+    const codeStr  = String(i.code||'');
+    const nameStr  = String(i.name||'');
     const idHolder = `qr-${codeStr.replace(/[^\w\-:.]/g,'_')}`;
+    const fileBase = `QR_${codeStr}_${safeName(nameStr)}`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="qr-cell"><div id="${idHolder}"></div></td>
+      <td class="qr-cell">
+        <div id="${idHolder}"></div>
+        <div class="small text-muted mt-1">${nameStr || codeStr}</div> <!-- caption -->
+      </td>
       <td>${codeStr}</td>
-      <td>${i.name||''}</td>
+      <td>${nameStr}</td>
       <td>${i.img ? `<img class="thumb" src="${i.img}" alt="">` : ''}</td>
       <td class="text-end">¥${fmt(i.price||0)}</td>
       <td class="text-end">${fmt(i.stock||0)}</td>
       <td class="text-end">${fmt(i.min||0)}</td>
-      <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${idHolder}"><i class="bi bi-download"></i></button></td>`;
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-secondary" data-act="dl" data-code="${idHolder}" data-fn="${fileBase}">
+          <i class="bi bi-download"></i>
+        </button>
+      </td>`;
     tb.appendChild(tr);
 
     const holder = document.getElementById(idHolder);
-    if (holder) {
+    if (holder && typeof QRCode !== 'undefined') {
       holder.innerHTML = '';
-      if (typeof QRCode !== 'undefined') {
-        new QRCode(holder, { text: itemQrText(codeStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
-      } else {
-        console.warn('QRCode lib belum termuat');
-      }
+      new QRCode(holder, { text: itemQrText(codeStr), width:84, height:84, correctLevel: QRCode.CorrectLevel.M });
     }
   });
 
+  // download: gunakan nama file yang jelas
   tb.querySelectorAll('button[data-act="dl"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const hid = btn.getAttribute('data-code');
+      const hid    = btn.getAttribute('data-code');
+      const fname  = (btn.getAttribute('data-fn') || 'QR').replace(/\.+/g,'.');
       const holder = document.getElementById(hid);
       const canvas = holder?.querySelector('canvas');
       const img    = holder?.querySelector('img');
       const dataUrl = canvas?.toDataURL?.('image/png') || img?.src || '';
       if(!dataUrl) return;
-      const a=document.createElement('a'); a.href=dataUrl; a.download=`QR_${hid.replace(/^qr-/,'')}.png`; a.click();
+      const a=document.createElement('a');
+      a.href=dataUrl;
+      a.download=`${fname}.png`;
+      a.click();
     });
   });
+
+  // (bagian XLSX export tetap sama)
+}
+
 
   // Ekspor Excel (XLSX)
   qs('#btn-items-xlsx')?.addEventListener('click', ()=>{
