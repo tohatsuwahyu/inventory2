@@ -261,19 +261,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ===== 履歴 ===== -->
-  <section id="view-history" class="d-none">
-    <div class="card metric p-3">
-      <div class="fw-semibold mb-2">履歴</div>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead><tr><th>日時</th><th>ユーザー</th><th>コード</th><th class="text-end">数量</th><th>単位</th><th>種別</th></tr></thead>
-          <tbody id="tbl-history"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 </main>
 
 <!-- Loading -->
@@ -284,7 +271,13 @@
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="qrlib.js"></script> <!-- tetap disertakan untuk halaman lain -->
+
+<!-- QRCode generator (lokal) -->
+<script src="qrlib.js"></script>
+
+<!-- Scanner library untuk QR (wajib untuk menu 入出庫 / 棚卸) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+
 <script src="app.js"></script>
 
 <script>
