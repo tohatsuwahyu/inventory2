@@ -22,7 +22,13 @@
       box-shadow: 8px 0 24px rgba(15,33,62,.15);
     }
     .brand{ padding:20px 18px; display:flex; gap:12px; align-items:center; }
-    .brand img{ width:34px; height:34px; object-fit:contain }
+    .brand img{
+  /* existing: width/height/object-fit */
+  padding:4px;
+  border-radius:12px;
+  background: radial-gradient(closest-side, #ffffffee 70%, transparent);
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.08));
+}
     .brand small{ color:#a8b6d0 }
     .sidebar a.nav-link{ color:#cfe2ff; opacity:.92; border-radius:12px; padding:10px 14px; }
     .sidebar a.nav-link.active, .sidebar a.nav-link:hover{ background:#1c3057; color:#fff; }
