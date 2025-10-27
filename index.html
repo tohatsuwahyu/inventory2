@@ -50,7 +50,9 @@
     @keyframes spin{ to{ transform:rotate(360deg) } }
   </style>
 
-  <script src="config.js"></script>
+  <!-- di <head> -->
+<script src="config.js" defer></script>
+
 </head>
 <body class="login-page">
 
@@ -107,7 +109,9 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <!-- Login logic -->
-  <script src="login.js"></script>
+  <!-- di akhir <body> -->
+<script src="login.js" defer></script>
+
 
   <!-- Brand & BG init + rel tombol -->
   <script>
