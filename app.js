@@ -83,6 +83,18 @@ async function api(action, { method='GET', body } = {}){
   }
 }
 
+// ===== Tambahan: pastikan lib QRCode tersedia =====
+async function ensureQRCode(){
+  if (window.QRCode) return;
+  await new Promise((resolve)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = resolve;
+    s.onerror = resolve; // tetap lanjut agar app tidak macet
+    document.head.appendChild(s);
+  });
+}
+
 // ===== LOAD =====
 async function loadAll(){
   showLoading(true, '読み込み中…');
@@ -184,7 +196,7 @@ function renderItems(){
 
     // generate QR setelah node terpasang di DOM
     const div = qs(`#qr-${CSS.escape(String(i.code||''))}`);
-    if (div) new QRCode(div,{ text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    if (div && window.QRCode) new QRCode(div,{ text:itemQrPayload(i), width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
   });
 
   // download QR png
@@ -222,7 +234,7 @@ function renderUsers(){
 
     // tabel
     const div = qs(`#uqr-${CSS.escape(String(u.id||''))}`);
-    if (div) new QRCode(div,{ text:payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
+    if (div && window.QRCode) new QRCode(div,{ text:payload, width:84, height:84, correctLevel:QRCode.CorrectLevel.M });
 
     // kartu cetak A4
     const card = document.createElement('div'); card.className='qr-card';
@@ -231,7 +243,7 @@ function renderUsers(){
     const title = document.createElement('div'); title.className='title';
     title.textContent = `${u.name||''}（${u.id||''}｜${u.role||'user'}）`;
     card.appendChild(v); card.appendChild(title); grid?.appendChild(card);
-    new QRCode(v,{ text:payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
+    if (window.QRCode) new QRCode(v,{ text:payload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
   });
 }
 
@@ -389,7 +401,9 @@ function nextItemCode(){
 function previewItemQr(i){
   if(!i || !i.code || !i.name){ alert('コード/名称は必須'); return; }
   const tmp = document.createElement('div');
-  new QRCode(tmp,{ text: JSON.stringify({t:'item',code:String(i.code),name:String(i.name),price:Number(i.price||0)}), width:240, height:240, correctLevel:QRCode.CorrectLevel.M });
+  if (window.QRCode) {
+    new QRCode(tmp,{ text: JSON.stringify({t:'item',code:String(i.code),name:String(i.name),price:Number(i.price||0)}), width:240, height:240, correctLevel:QRCode.CorrectLevel.M });
+  }
   const canvas = tmp.querySelector('canvas');
   const dataUrl = canvas ? canvas.toDataURL('image/png') : '';
   const w = window.open('', 'qrprev', 'width=420,height=520');
@@ -403,6 +417,9 @@ function previewItemQr(i){
 
 // ===== EVENTS =====
 window.addEventListener('DOMContentLoaded', async ()=>{
+  // Pastikan lib QRCode ada sebelum render tabel
+  await ensureQRCode();
+
   // sidebar nav
   qsa('.sidebar a.nav-link').forEach(a=>a.addEventListener('click',()=>{
     const id=a.getAttribute('data-view'); showView(id, a.textContent.trim());
