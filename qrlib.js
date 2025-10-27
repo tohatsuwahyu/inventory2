@@ -5,7 +5,9 @@ window.QRPrint = {
       const cell = document.createElement('div'); cell.className='qr-cell';
       const box = document.createElement('div'); box.className='box'; cell.appendChild(box);
       new QRCode(box,{ text: JSON.stringify({t:'item',code:i.code,name:i.name,price:i.price}), width:120, height:120 });
-      const meta = document.createElement('div'); meta.innerHTML = `<div class="name">${i.name}</div><div>${i.code}</div><div>¥${i.price||'-'}</div>`;
+     const meta = document.createElement('div');
+meta.innerHTML = `<div class="name">${i.name}</div><div>${i.code}</div><div>¥${i.price||'-'}</div>`;
+
       cell.appendChild(meta); el.appendChild(cell);
     });
   },
