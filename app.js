@@ -451,7 +451,9 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   // Items
   qs('#btn-items-export')?.addEventListener('click', ()=>exportCsv('items.csv', state.items, ['code','name','price','stock','min']));
 
-  const modalItem = new bootstrap.Modal('#dlg-new-item');
+  // ⬇️ FIX: pakai element, bukan selector string (hindari error modal.js: reading 'backdrop')
+  const modalItemEl = document.getElementById('dlg-new-item');
+  const modalItem   = modalItemEl ? new bootstrap.Modal(modalItemEl) : null;
   qs('#btn-open-new-item')?.addEventListener('click', ()=>{
     qs('#i-code').value  = nextItemCode();
     qs('#i-name').value  = '';
@@ -459,7 +461,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     qs('#i-stock').value = 0;
     qs('#i-min').value   = 0;
     qs('#i-img').value   = '';
-    modalItem.show();
+    modalItem?.show();
   });
 
   qs('#form-item')?.addEventListener('submit', async (e)=>{
@@ -478,7 +480,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
       const r = await api('addItem',{method:'POST',body});
       if(r && r.ok===false) throw new Error(r.error||'登録失敗');
       previewItemQr({ code:body.code, name:body.name, price:body.price });
-      modalItem.hide();
+      modalItem?.hide();
       await loadAll();
       showView('view-items','商品一覧');
     }catch(err){ alert(err.message); }
@@ -489,15 +491,16 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     previewItemQr(i);
   });
 
-  // Users
-  const modalUser = new bootstrap.Modal('#dlg-new-user');
-  qs('#btn-open-new-user')?.addEventListener('click', ()=>modalUser.show());
+  // Users (pakai element juga)
+  const modalUserEl = document.getElementById('dlg-new-user');
+  const modalUser   = modalUserEl ? new bootstrap.Modal(modalUserEl) : null;
+  qs('#btn-open-new-user')?.addEventListener('click', ()=>modalUser?.show());
   qs('#form-user')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const body={ name:qs('#u-name').value.trim(), id:qs('#u-id').value.trim(), role:qs('#u-role').value, pin:qs('#u-pin').value.trim() };
     const r=await api('addUser',{method:'POST',body});
     if(r && r.ok===false) return alert(r.error||'エラー');
-    modalUser.hide(); await loadAll(); showView('view-users','ユーザー / QR');
+    modalUser?.hide(); await loadAll(); showView('view-users','ユーザー / QR');
   });
   qs('#btn-print-qr-users')?.addEventListener('click', ()=>{
     qs('#print-qr-users')?.classList.remove('d-none'); window.print(); qs('#print-qr-users')?.classList.add('d-none');
