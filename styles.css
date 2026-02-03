@@ -1,9 +1,9 @@
 /* =========================================================
- * styles.css — Inventory UI (mobile-first, app-like)
+ * styles.css — Inventory UI (Final Polished Version)
  * =======================================================*/
 
-/* ---------- Reset ringan ---------- */
-:root{
+/* ---------- Reset & Variables ---------- */
+:root {
   --bg: #f6f8fc;
   --card: #ffffff;
   --muted: #6b7280;
@@ -11,562 +11,770 @@
   --primary: #2563eb;
   --danger: #dc2626;
   --success: #16a34a;
-  --shadow: 0 8px 26px rgba(15,23,42,.06);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   --radius: 16px;
+  --page-max: 1680px;
 }
 
-*{ box-sizing:border-box; }
-html, body{ height:100%; }
-body{
-  margin:0; background: var(--bg); color:#0f172a;
-  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow-x: hidden; }
+body {
+  margin: 0; background: var(--bg); color: #0f172a;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* ---------- Layout umum ---------- */
-header.appbar{ background:#fff; border-bottom:1px solid var(--border); }
-header .brand{ display:flex; align-items:center; gap:.6rem; }
-header .brand img{ height:28px; }
-
-.layout{ display:flex; min-height:100vh; }
-.sidebar{
-  width:260px; background:#0b1727; color:#c9d2e3; padding:14px; box-shadow: var(--shadow);
-}
-.sidebar nav a{
-  display:flex; align-items:center; gap:.6rem;
-  color:#c9d2e3; text-decoration:none; padding:.6rem .7rem; border-radius:10px;
-}
-.sidebar nav a.active, .sidebar nav a:hover{
-  background:#142033; color:#fff;
-}
-.sidebar .bi{ font-size:1rem; }
-
-main{ flex:1; }
-.content{ padding:16px; }
-
-.app-footer{
-  margin-top:24px; padding:18px; color:#64748b; text-align:center;
+/* ---------- Layout ---------- */
+/* --- HEADER FIX --- */
+header.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  height: 60px; /* KITA KUNCI TINGGINYA */
+  background: rgba(255, 255, 255, 0.9); /* Sedikit transparan */
+  backdrop-filter: blur(8px); /* Efek blur kaca di belakangnya */
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03); /* Bayangan sangat tipis */
 }
 
-/* ---------- Cards ---------- */
-.card{
-  background: var(--card); border:1px solid var(--border);
+/* Memastikan konten di dalam header selalu di tengah vertikal */
+header .container-fluid {
+  height: 100%;
+}
+
+header .brand img {
+  height: 28px; /* Ukuran logo distandarkan */
+  width: auto;
+}
+
+.layout { display: flex; min-height: 100vh; gap: 0; align-items: stretch; }
+.sidebar {
+  width: 260px; background: #0b1727; color: #c9d2e3; padding: 14px; box-shadow: var(--shadow);
+}
+.sidebar nav a {
+  display: flex; align-items: center; gap: .6rem;
+  color: #c9d2e3; text-decoration: none; padding: .6rem .7rem; border-radius: 10px; margin-bottom: 2px;
+}
+.sidebar nav a.active, .sidebar nav a:hover { background: #142033; color: #fff; }
+
+main { flex: 1 1 auto; min-width: 0; }
+.content { padding: 16px; }
+.app-footer { margin-top: 24px; padding: 18px; color: #64748b; text-align: center; }
+
+/* ---------- Components ---------- */
+.card {
+  background: var(--card); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
-.card .title{ font-weight:600; color:#334155; }
 
-/* ---------- Toolbars ---------- */
-.items-toolbar{
-  display:flex; align-items:center; justify-content:space-between; gap:1rem;
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: .45rem; padding: .48rem .7rem; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: #fff; color: #0f172a; transition: .15s ease;
 }
-.items-toolbar .left{ display:flex; align-items:center; gap:.8rem; }
-.items-toolbar .right{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
-.items-toolbar .search{
-  min-width:260px; max-width:360px;
+.btn:hover { background: #f7f9fe; }
+.btn-primary { background: var(--primary); color: #fff; border-color: transparent; }
+.btn-primary:hover { filter: brightness(.97); background: var(--primary); }
+.btn-danger { background: var(--danger); color: #fff; border-color: transparent; }
+.btn-sm { padding: .36rem .55rem; border-radius: 9px; font-size: .92rem; }
+
+/* Forms */
+.form-control, .form-select {
+  padding: .5rem .65rem; border: 1px solid var(--border); border-radius: 10px; outline: none;
 }
+.form-control:focus, .form-select:focus { border-color: #c7d2fe; box-shadow: 0 0 0 4px rgba(99,102,241,.08); }
 
-/* ---------- Buttons ---------- */
-.btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  gap:.45rem; padding:.48rem .7rem; border-radius:10px; cursor:pointer;
-  border:1px solid var(--border); background:#fff; color:#0f172a;
-  transition: .15s ease;
+/* Tables */
+.table { margin: 0; width: 100%; border-collapse: collapse; }
+.table thead th {
+  font-weight: 600; color: #334155; background: #f0f3fb;
+  border-bottom: 1px solid var(--border); padding: .6rem .7rem;
+  vertical-align: middle; white-space: nowrap;
 }
-.btn:hover{ background:#f7f9fe; }
-.btn:active{ transform: translateY(1px); }
-.btn-primary{ background: var(--primary); color:#fff; border-color:transparent; }
-.btn-primary:hover{ filter:brightness(.97); }
-.btn-outline-secondary{ background:#fff; }
-.btn-danger{ background: var(--danger); color:#fff; border-color:transparent; }
-.btn-sm{ padding:.36rem .55rem; border-radius:9px; font-size:.92rem; }
-.btn-close{ width:34px; height:34px; border-radius:50%; opacity:.7; }
-.btn-close:hover{ opacity:1; }
+.table td { padding: .6rem .7rem; vertical-align: middle; border-bottom: 1px solid #eef2f7; }
 
-/* ---------- Forms ---------- */
-.form-label{ font-size:.9rem; color:#334155; margin-bottom:.3rem; }
-.form-control, .form-select{
-  width:100%; padding:.5rem .65rem; border:1px solid var(--border); border-radius:10px;
-  background:#fff; color:#0f172a; outline:none;
-}
-.form-control:focus, .form-select:focus{
-  border-color:#c7d2fe; box-shadow:0 0 0 4px rgba(99,102,241,.08);
-}
-input[readonly], .form-control[readonly]{ background:#f8fafc; }
+/* Badges */
+.badge { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+.badge-soft { background: #eef2ff; color: #3730a3; border: 1px solid #e0e7ff; }
+.badge-danger { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
 
-/* ---------- Tables ---------- */
-.table{ margin:0; }
-.table thead th{
-  font-weight:600; color:#334155; background:#f0f3fb;
-  border-bottom:1px solid var(--border);
-  vertical-align:middle;
-}
-/* Header 置場 supaya tidak terlalu dekat dengan 最小 */
-.th-location { padding-left: 12px; min-width: 100px; letter-spacing: .4px; }
-
-.table td, .table th{ padding:.6rem .7rem; }
-.table tr + tr td{ border-top:1px solid #eef2f7; }
-
-/* Sticky header pada container scroll */
-.table-responsive thead th{
-  position: sticky; top: 0; z-index: 1;
-}
-
-/* ---------- Badges/Chips ---------- */
-.badge{ display:inline-block; padding:.25rem .5rem; border-radius:999px; font-size:.78rem; }
-.badge-soft{ background:#eef2ff; color:#3730a3; border:1px solid #e0e7ff; }
-.badge-danger{ background:#fef2f2; color:#991b1b; border:1px solid #fee2e2; }
-
-/* ---------- Grid aksi kecil ---------- */
-.act-grid{
-  display:grid; grid-template-columns: repeat(4, 36px); gap:.35rem;
-}
-.act-grid .btn{
-  width:36px; height:36px; padding:0; border-radius:10px;
-}
-
-/* ---------- Chart area ---------- */
-.chart-box{ height:260px; }
-
-/* ---------- QR box di tabel ---------- */
-.tbl-qr-box{
-  width:100%; min-width:100px; display:flex; align-items:center; justify-content:center;
-  padding:.3rem; background:#f8fafc; border:1px dashed #e5e7eb; border-radius:12px;
-}
-
-/* ---------- App loading overlay (global) ---------- */
-#global-loading{
-  position:fixed; inset:0; z-index:2000;
-  display:flex; align-items:center; justify-content:center;
+/* Loading & Utils */
+#global-loading {
+  position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,.72);
 }
 #global-loading.d-none { display: none; }
 #global-loading .box {
-  display:flex; flex-direction:column; align-items:center; gap:10px;
-  padding:16px 18px; background:#fff; border:1px solid #e5e7eb;
-  border-radius:14px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px 18px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: var(--shadow);
 }
 #global-loading .spinner {
-  width:28px; height:28px; border-radius:50%;
-  border:3px solid #cbd5e1; border-top-color: var(--primary);
-  animation: spin 1s linear infinite;
+  width: 28px; height: 28px; border-radius: 50%; border: 3px solid #cbd5e1;
+  border-top-color: var(--primary); animation: spin 1s linear infinite;
 }
-#global-loading .text { font-size:.95rem; color:#475569; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* =========================================================
- * Responsive
+ * DASHBOARD METRICS (Style Baru)
  * =======================================================*/
-
-/* Mobile ≤ 420px */
-@media (max-width: 420px){
-  /* HAPUS display:none; → burger akan berfungsi */
-  .layout{ display:block; }
-  .items-toolbar{ flex-direction:column; align-items:stretch; gap:.6rem; }
-  .items-toolbar .left, .items-toolbar .right{ width:100%; }
-  .items-toolbar .right{ justify-content:flex-start; }
-  .items-toolbar .search{ width:100%; min-width:0; }
-
-  /* Tables */
-  .table thead th{ font-size:.84rem; white-space:nowrap; }
-  .table td{ font-size:.95rem; }
-
-  /* QR column pencadangan lebar */
-  #view-items thead th:first-child,
-  #view-items tbody td:first-child{
-    width:130px !important; min-width:130px !important;
-  }
-
-  /* 置場 rapi */
-  #view-items thead th:nth-child(8),
-  #view-items tbody td:nth-child(8){
-    font-size:.9rem; letter-spacing:.4px; white-space:nowrap;
-  }
-
-  /* Actions grid */
-  .act-grid{ grid-template-columns: repeat(4, 40px); gap:.35rem; }
-  .act-grid .btn{ width:40px; height:40px; }
-
-  /* Scan box */
-  #scan-area, #io-scan-area{ border-radius:12px; }
-
-  /* Cards padding */
-  .card{ border-radius:14px; }
+.metric-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  padding: 1.25rem;
+  height: 100%;
+  display: flex; align-items: center; gap: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); }
 
-/* Off-canvas sidebar untuk mobile & tablet (≤991px) */
-@media (max-width: 991px){
-  .sidebar{
-    position:fixed; left:0; top:0; bottom:0;
-    width:86%; max-width:360px;
-    background:#0b1727; color:#c9d2e3; overflow:auto;
-    transform: translateX(-100%);
-    transition: transform .18s ease-out;
-    z-index:1040;
-  }
-  .sidebar.open{ transform:none; }
-
-  #sb-backdrop{
-    position:fixed; inset:0; background:rgba(0,0,0,.35);
-    display:none; z-index:1030;
-  }
-  #sb-backdrop.show{ display:block; }
-
-  .items-toolbar .search{ min-width:240px; }
-  .act-grid{ grid-template-columns: repeat(4, 44px); gap:.45rem; }
-  .act-grid .btn{ width:44px; height:44px; }
-  .chart-box{ height:300px; }
+.metric-icon {
+  width: 52px; height: 52px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; color: #fff; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
+.metric-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.metric-pink { background: linear-gradient(135deg, #ec4899, #db2777); }
+.metric-green { background: linear-gradient(135deg, #10b981, #059669); }
+.metric-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+.metric-value { font-size: 1.8rem; font-weight: 700; color: #1e293b; line-height: 1.2; }
+.metric-label { font-size: 0.85rem; color: #64748b; font-weight: 500; margin-bottom: 2px; }
+.metric-sub { font-size: 0.75rem; color: #94a3b8; }
+.metric-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; }
+.metric-badge-neutral { background: #f1f5f9; color: #64748b; }
+.metric-badge-danger { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+.metric-badge-soft { background: #eef2ff; color: #4f46e5; }
+
+/* Chart Area */
+.chart-card { min-height: 100%; }
+.chart-box { height: 280px; width: 100%; position: relative; }
 
 /* =========================================================
- * Utilities
+ * ITEMS TABLE RESPONSIVE (Logic Final)
+ * =======================================================*/
+/* Nama item dipotong jika terlalu panjang */
+#view-items .td-name {
+  max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tbl-qr-box canvas, .tbl-qr-box img { width: 64px; height: 64px; }
+
+/* DESKTOP (Default) */
+#view-items table.items-table td:last-child .act-grid.actions {
+  display: grid;
+  grid-template-columns: repeat(5, 28px); /* 5 tombol sejajar */
+  gap: 6px;
+  justify-content: end;
+  min-width: 160px;
+}
+#view-items .act-grid.actions .btn {
+  width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border-radius: 8px;
+}
+
+/* TABLET (< 992px) */
+@media (max-width: 992px) {
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 80%; max-width: 300px;
+    transform: translateX(-100%); transition: transform .2s ease; z-index: 1040;
+  }
+  body.sb-open .sidebar { transform: none; }
+  #sb-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 1030;
+  }
+  body.sb-open #sb-backdrop { display: block; }
+
+ /* Table Adjustments untuk Tablet */
+  /* Kita JANGAN menyembunyikan kolom dengan display:none karena akan merusak struktur baris jika header dan body tidak sinkron */
+  /* Sebaliknya, biarkan tabel bisa di-scroll ke samping (horizontal scroll) */
+  
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Scroll mulus di iPad/iPhone */
+    padding-bottom: 10px; /* Memberi ruang untuk scrollbar */
+  }
+
+  /* Opsional: Kecilkan font sedikit di tablet agar muat lebih banyak */
+  .items-table {
+    font-size: 0.9rem;
+  }
+  
+  .items-table td, .items-table th {
+    padding: 8px 6px; /* Kurangi padding sel agar tabel lebih padat */
+  }
+  
+  /* Tombol aksi tetap terlihat rapi */
+  #view-items table.items-table td:last-child .act-grid.actions {
+    grid-template-columns: repeat(3, 32px) !important; /* Perkecil sedikit tombol */
+    gap: 4px;
+  }
+/* MOBILE (< 576px) */
+@media (max-width: 576px) {
+  .items-toolbar { flex-direction: column; gap: 10px; }
+  .items-toolbar .right { width: 100%; justify-content: space-between; }
+  .metric-value { font-size: 1.6rem; }
+  
+  /* Table: Tombol besar & Nama 2 baris */
+  #view-items table.items-table thead th:last-child { min-width: auto !important; text-align: right; }
+  #view-items table.items-table td:last-child { white-space: normal !important; min-width: auto !important; }
+  
+  #view-items table.items-table td:last-child .act-grid.actions {
+    grid-template-columns: repeat(2, 44px) !important; gap: 8px;
+  }
+  #view-items .act-grid.actions .btn { width: 44px; height: 44px; border-radius: 12px; font-size: 1.1rem; }
+  
+  #view-items .td-name {
+    white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+}
+/* =========================================================
+ * TAMBAHAN UX: ANIMASI LASER SCANNER
+ * =======================================================*/
+/* Membuat garis merah bergerak naik turun di area kamera */
+#io-scan-area::after, 
+#scan-area::after {
+  content: "";
+  position: absolute;
+  width: 80%;       /* Lebar garis 80% dari kotak */
+  height: 2px;      /* Ketebalan garis */
+  background: #ef4444; /* Warna Merah Laser */
+  box-shadow: 0 0 4px #ef4444, 0 0 8px #f87171; /* Efek cahaya (glow) */
+  left: 10%;
+  top: 10%;
+  z-index: 10;
+  animation: laserScan 2s infinite ease-in-out alternate;
+  pointer-events: none; /* Agar tidak menghalangi sentuhan */
+}
+
+/* Definisi animasi gerak */
+@keyframes laserScan {
+  0%   { top: 10%; opacity: 0.6; }
+  50%  { opacity: 1; }
+  100% { top: 90%; opacity: 0.6; }
+}
+
+/* Tambahkan bingkai pojok agar user tahu batas scan */
+#io-scan-area::before, 
+#scan-area::before {
+  content: "";
+  position: absolute;
+  inset: 15%; /* Jarak dari pinggir */
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 9;
+}
+/* =========================================================
+ * TAMBAHAN UX: FEEDBACK SENTUHAN (TOUCH)
+ * =======================================================*/
+/* Saat baris tabel disentuh/hover, warnanya berubah sedikit */
+.table-hover tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* Warna saat ditekan (Active state) */
+.table-hover tbody tr:active {
+  background-color: #e0e7ff !important; /* Biru sangat muda */
+}
+
+/* Mempercantik Input Form agar lebih enak dilihat */
+.form-control:focus, .form-select:focus {
+  border-color: #6366f1; /* Warna ungu-biru modern */
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); /* Glow halus */
+}
+/* =========================================================
+ * UPGRADE TEMA WARNA & TOMBOL (Indigo Pro Theme)
  * =======================================================*/
 
-.text-uppercase{ text-transform:uppercase; }
-.text-muted{ color: var(--muted) !important; }
-.text-primary{ color: var(--primary) !important; }
-.text-danger{ color: var(--danger) !important; }
-.text-success{ color: var(--success) !important; }
-
-.d-none{ display:none !important; }
-.w-100{ width:100% !important; }
-.flex-1{ flex:1 1 auto; }
-
-.border{ border:1px solid var(--border) !important; }
-.rounded{ border-radius:12px !important; }
-.rounded-2xl{ border-radius:22px !important; }
-
-.text-end{ text-align:right !important; }
-.fw-bold{ font-weight:700 !important; }
-.fw-semibold{ font-weight:600 !important; }
-
-.small{ font-size:.9rem; }
-.fs-3{ font-size:1.6rem; }
-
-/* Icons */
-.bi{ vertical-align:-2px; }
-
-/* QR area fallback */
-#scan-area,#io-scan-area{
-  background:#0b0b0b10; border:1px dashed #e5e7eb; min-height:220px;
-  display:flex; align-items:center; justify-content:center; color:#64748b;
+/* 1. Ubah Variabel Warna Utama (Menimpa yang lama) */
+:root {
+  /* Warna Background sedikit lebih abu kebiruan (sejuk di mata) */
+  --bg: #f3f4f6; 
+  /* Warna Utama diganti Indigo (Lebih mewah dari biru biasa) */
+  --primary: #4f46e5; 
+  /* Bayangan yang lebih soft */
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Canvas image preview window fix */
-img{ max-width:100%; height:auto; }
-
-/* Rapi-in header & tombol kolom '操作' di 商品一覧 */
-#view-items thead th:last-child{
-  text-align:center !important;
-  min-width: 180px;
-  width: 1%;
-  white-space: nowrap;
-}
-#view-items tbody td:last-child{ text-align:center !important; }
-#view-items tbody td:last-child .act-grid{
-  grid-template-columns: repeat(4, 38px);
-  gap: .4rem;
-  justify-content: center;
-  margin-inline: auto;
-}
-#view-items tbody td:last-child .act-grid .btn{
-  width:38px; height:38px; padding:0;
-}
-/* Sedikit kencangkan padding row supaya sejajar rapi */
-#view-items .table td, 
-#view-items .table th{ padding:.56rem .7rem; }
-/* Off-canvas via body class (fallback kalau elemen tak ketemu saat init) */
-@media (max-width: 991px){
-  .sidebar{
-    position:fixed; left:0; top:0; bottom:0;
-    width:86%; max-width:360px;
-    background:#0b1727; color:#c9d2e3; overflow:auto;
-    transform: translateX(-100%);       /* tertutup */
-    transition: transform .18s ease-out;
-    z-index:1040;
-  }
-  body.sb-open .sidebar{ transform:none; }      /* TERBUKA */
-
-  #sb-backdrop{
-    position:fixed; inset:0; background:rgba(0,0,0,.35);
-    display:none; z-index:1030;
-  }
-  body.sb-open #sb-backdrop{ display:block; }   /* TERBUKA */
-}
-/* ===== 商品一覧: perapihan header & isi ===== */
-.table-items th,
-.table-items td { vertical-align: middle; }
-
-.table-items thead th {
-  white-space: nowrap;
-  font-size: 0.95rem;
-  padding-top: .6rem;
-  padding-bottom: .6rem;
-  color: #334155;          /* abu-abu elegan */
+/* 2. Tombol Utama dengan Gradasi (Terlihat 'Mahal') */
+.btn-primary {
+  /* Gradasi miring dari Indigo terang ke gelap */
+  background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+  border: none;
+  box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3); /* Bayangan berwarna senada */
+  transition: all 0.2s ease;
 }
 
-/* Lebar kolom (desktop) */
-.table-items .th-qr     { width: 120px; }
-.table-items .th-code   { width: 120px; }
-.table-items .th-img    { width: 110px; }
-.table-items .th-price  { width: 110px; }
-.table-items .th-stock,
-.table-items .th-min    { width: 90px; }
-.table-items .th-dept   { width: 140px; }
-.table-items .th-location { width: 140px; }
-.table-items .th-actions  { width: 140px; }
+/* Efek saat tombol ditekan: Sedikit mengecil & bayangan hilang */
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
 
-/* Kolom 名称: potong rapi bila panjang */
-.table-items td:nth-child(3) { /* kolom 名称 */
-  max-width: 360px;
+/* 3. Header Tabel lebih modern */
+.table thead th {
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.03em; /* Huruf agak renggang sedikit biar rapi */
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+/* =========================================================
+ * UPGRADE FONT (Tipografi)
+ * =======================================================*/
+body {
+  /* Menggunakan font Noto Sans JP yang baru kita pasang */
+  font-family: 'Noto Sans JP', sans-serif !important;
+  /* Membuat huruf lebih halus di layar HP/Monitor */
+  -webkit-font-smoothing: antialiased; 
+}
+
+/* Judul Halaman lebih tebal & gelap */
+.section-title, .page-title, h3, h5 {
+  font-weight: 700;
+  color: #111827; /* Hitam pekat tapi lembut */
+  letter-spacing: -0.025em; /* Sedikit rapat biar modern */
+}
+/* =========================================================
+ * EFEK KACA (Glassmorphism) PADA HEADER
+ * =======================================================*/
+header.appbar {
+  background: rgba(255, 255, 255, 0.85); /* Putih transparan (85%) */
+  backdrop-filter: blur(10px);           /* Efek blur di belakangnya */
+  -webkit-backdrop-filter: blur(10px);   /* Untuk Safari/iPhone */
+  border-bottom: 1px solid rgba(0,0,0,0.05); /* Garis batas tipis */
+}
+/* =========================================================
+ * FINAL COLOR TUNE: MODERN SLATE & INDIGO THEME
+ * =======================================================*/
+
+/* 1. PALET WARNA BARU (Lebih lembut & Harmonis) */
+:root {
+  /* Background utama: Abu-abu sangat muda dengan nuansa biru */
+  --bg: #f8fafc;
+  
+  /* Warna Utama: Indigo yang lebih 'matang' */
+  --primary: #4f46e5;
+  
+  /* Sidebar: Bukan hitam, tapi Biru Abu-abu Gelap (Slate) */
+  /* Ini kuncinya agar tidak sakit mata */
+  --sidebar-bg: #1e293b; 
+  --sidebar-hover: #334155;
+  
+  /* Kartu Putih & Border Halus */
+  --card: #ffffff;
+  --border: #f1f5f9;
+  
+  /* Bayangan Modern (Sangat tipis & elegan) */
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* 2. UPDATE SIDEBAR (Agar serasi dengan tema) */
+.sidebar {
+  background: var(--sidebar-bg) !important; /* Timpa warna lama */
+  border-right: 1px solid rgba(255,255,255,0.05); /* Garis batas tipis */
+  box-shadow: none !important; /* Hilangkan bayangan berat sidebar */
+}
+
+/* Link di sidebar saat aktif/hover */
+.sidebar nav a.active, .sidebar nav a:hover {
+  background: var(--primary) !important; /* Pakai warna Indigo */
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); /* Glow effect pada menu aktif */
+}
+
+/* 3. UPDATE KARTU (Card) BIAR LEBIH BERSIH */
+.card, .metric-card {
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important; /* Bayangan tipis */
+}
+/* Saat mouse di atas kartu, baru muncul bayangan (efek timbul) */
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 4. WARNA BADGE STATUS (Lebih Soft / Pastel) */
+.bg-success, .metric-badge-success {
+  background-color: #dcfce7 !important; /* Hijau Mint Muda */
+  color: #166534 !important; /* Teks Hijau Tua */
+  border: 1px solid #bbf7d0 !important;
+}
+.bg-danger, .metric-badge-danger {
+  background-color: #fee2e2 !important; /* Merah Mawar Muda */
+  color: #991b1b !important; /* Teks Merah Tua */
+  border: 1px solid #fecaca !important;
+}
+.bg-warning, .badge-warning {
+  background-color: #fef9c3 !important; /* Kuning Cream */
+  color: #854d0e !important; /* Teks Coklat */
+  border: 1px solid #fde68a !important;
+}
+
+/* 5. HEADER TABEL */
+.table thead th {
+  background-color: #f8fafc !important; /* Abu-abu sangat muda */
+  color: #64748b !important; /* Teks abu-abu medium */
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+/* =========================================
+   TOAST NOTIFICATION UPGRADE
+   (Paste di bagian paling bawah styles.css)
+   ========================================= */
+
+/* Pastikan toast bisa diklik untuk close manual */
+.toast-mini {
+  pointer-events: auto;
+  /* Background default gelap transparan + blur */
+  background: rgba(33, 37, 41, 0.95);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  border-radius: 12px; /* Lebih bulat */
+  padding: 0;          /* Reset padding biar diatur inner */
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  min-width: 260px;
+  max-width: 320px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.1);
+  /* Animasi masuk dari kanan */
+  animation: slideInRight 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-/* QR & 画像 sel kecil rapi */
-.table-items td:nth-child(1) img,
-.table-items td:nth-child(4) img {
-  max-height: 64px;
-  width: auto;
+/* Animasi Slide */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-/* Tombol 操作 jadi 2×2 grid hemat tempat */
-.table-items .act-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 6px;
+/* Variasi Warna (Bootstrap colors override) */
+.toast-mini.text-bg-success {
+  background: rgba(22, 163, 74, 0.95) !important; /* Green 600 */
+  border-color: rgba(134, 239, 172, 0.4);
 }
-.table-items .act-grid .btn {
-  width: 100%;
-  padding: .35rem .5rem;
-  border-radius: .75rem;
+.toast-mini.text-bg-danger {
+  background: rgba(220, 38, 38, 0.95) !important; /* Red 600 */
+  border-color: rgba(252, 165, 165, 0.4);
+}
+.toast-mini.text-bg-warning {
+  background: rgba(234, 179, 8, 0.95) !important; /* Yellow 500 */
+  color: #fff !important; /* Text putih biar kontras */
+  border-color: rgba(253, 224, 71, 0.4);
+}
+.toast-mini.text-bg-dark {
+  background: rgba(31, 41, 55, 0.95) !important; /* Gray 800 */
+  border-color: rgba(156, 163, 175, 0.3);
 }
 
-/* Responsif: saat layar lebih sempit, sesuaikan */
-@media (max-width: 1400px) {
-  .table-items .th-name      { max-width: 300px; }
-  .table-items .th-dept,
-  .table-items .th-location  { width: 120px; }
-  .table-items .th-actions   { width: 128px; }
+/* Tombol close putih */
+.toast-mini .btn-close-white {
+  filter: invert(1) grayscale(100%) brightness(200%);
+  opacity: 0.8;
 }
-@media (max-width: 992px) {
-  .table-items .th-name      { max-width: 220px; }
-  .table-items .th-qr        { width: 100px; }
-  .table-items .th-img       { width: 88px; }
+.toast-mini .btn-close:hover { opacity: 1; }
+/* =========================================
+   VISUAL UPGRADE: FLOATING CARDS
+   (Letakkan di paling bawah styles.css)
+   ========================================= */
+
+/* Membuat kartu dashboard terlihat lebih halus & modern */
+.card {
+  border: none !important; /* Hilangkan garis pinggir kasar */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* Bayangan lembut */
+  transition: transform 0.2s ease, box-shadow 0.2s ease; /* Animasi halus */
 }
-.ic3d{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:12px;color:#fff;font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.15),inset 0 1px 0 rgba(255,255,255,.3)}
-.ic-blue{background:linear-gradient(135deg,#2f80ed,#56ccf2)}
-.ic-red{background:linear-gradient(135deg,#ef476f,#ff6b6b)}
-.ic-green{background:linear-gradient(135deg,#06c270,#34d399)}
-.ic-violet{background:linear-gradient(135deg,#7c3aed,#a78bfa)}
-.metric-head{display:flex;align-items:center;gap:.5rem;color:#6b7280;font-size:.85rem}
-.metric-value{font-size:1.9rem;font-weight:700;margin-top:.25rem}
-.welcome{background:linear-gradient(135deg,#eef2ff,#f5f7ff);border:1px solid #e5e7eb;border-radius:12px;padding:.65rem .9rem;display:flex;align-items:center;gap:.6rem;box-shadow:0 10px 20px rgba(15,23,42,.04) inset}
-.welcome .avatar{width:34px;height:34px;border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#22d3ee);box-shadow:0 6px 16px rgba(14,165,233,.25)}
-@media (max-width: 480px){
-  header .brand img{ height:24px; }
-  header .brand .fw-bold{ font-size:14px; white-space:nowrap; }
-  .welcome{ padding:.5rem .65rem; }
-  .welcome .avatar{ width:28px; height:28px; font-size:14px; }
-  .metric-value{ font-size:1.5rem; }
-  .items-toolbar .right > *{ margin-top:.25rem; }
-  #io-scan-area,#scan-area{ max-width:100%; aspect-ratio:3/4; border-radius:10px; }
-  /* Tabel Users */
-  #view-users .table th, #view-users .table td{ font-size:.9rem; }
-  #view-users .table .th-qr, #view-users table td:first-child{ width:120px; }
-  /* Hindari wrap vertikal judul sidebar */
-  .sidebar nav a{ white-space:nowrap; }
+
+/* Efek saat mouse diarahkan (Hover) */
+.card:hover {
+  transform: translateY(-4px); /* Kartu naik sedikit */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Bayangan menebal */
 }
-/* === Mobile polish (tanpa ganggu fungsi) ===================== */
-/* Header: biar tidak tumpang-tindih & jadi dua baris rapi */
-@media (max-width: 420px){
-  header.appbar .container-fluid > .d-flex{
-    flex-wrap: wrap;                /* izinkan turun ke baris 2 */
-    row-gap: 8px;
-  }
-  header.appbar .brand{ min-width:0; }
-  #who{
-    max-width: 58vw;                /* nama user tidak nabrak tombol */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  header.appbar .btn{ padding:.4rem .6rem; }
 
-  /* Konten lebih padat */
-  .content{ padding: 12px; }
-  .card{ border-radius: 14px; }
+/* Mempercantik Chart Container */
+canvas {
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
+}
+/* =======================================================
+   MOBILE APP EXPERIENCE (Responsive & Smart UI)
+   ======================================================= */
 
-  /* Kartu metrik dashboard: angka besar tidak pecah layout */
-  .fs-3{ line-height: 1.1; }
+/* 1. Sembunyikan Sidebar di HP (Ganti dengan Bottom Nav) */
+@media (max-width: 991px) {
+  .sidebar { display: none !important; }
+  .main-content { margin-left: 0 !important; padding-bottom: 80px; } /* Ruang untuk nav bawah */
+  
+  /* Hilangkan tombol toggle sidebar di header */
+  [data-burger] { display: none !important; } 
+}
 
-  /* Toolbar jadi kolom (sudah ada, ini penguat) */
-  .items-toolbar{ flex-direction: column; align-items: stretch; gap:.6rem; }
-  .items-toolbar .left, .items-toolbar .right{ width: 100%; }
-  .items-toolbar .search{ width: 100%; min-width: 0; }
+/* 2. Style Bottom Navigation Bar */
+.mobile-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  display: flex; justify-content: space-around; align-items: center;
+  height: 65px; z-index: 1050;
+  padding-bottom: env(safe-area-inset-bottom); /* Support iPhone X+ */
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+}
 
-  /* Area kamera (IO & 棚卸) aman penuh lebar & tidak menutup tombol */
-  #io-scan-area, #scan-area{
-    max-width: 100%;
+.mobile-nav .nav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-decoration: none; color: #94a3b8; font-size: 0.7rem; flex: 1;
+  transition: all 0.2s;
+}
+.mobile-nav .nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
+.mobile-nav .nav-item.active { color: #2563eb; font-weight: 600; }
+
+/* Tombol Scan Melayang di Tengah */
+.scan-circle {
+  background: #2563eb; color: #fff;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+  transform: translateY(-20px); /* Naik ke atas */
+  border: 4px solid #f8fafc; /* Border menyatu background */
+}
+.nav-item.active .scan-circle { background: #1d4ed8; }
+
+/* 3. TRANSFORMASI TABEL JADI KARTU (Card View) */
+@media (max-width: 768px) {
+  /* Sembunyikan Header Tabel */
+  table.items-table thead { display: none; }
+  
+  /* Baris jadi Kartu */
+  table.items-table tbody tr {
+    display: block;
+    background: #fff;
     border-radius: 12px;
-    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid #f1f5f9;
+    position: relative;
   }
 
-  /* Tabel: header nowrap, nama item pakai ellipsis */
-  .table thead th{ white-space: nowrap; font-size: .9rem; }
-  #view-items td:nth-child(3){         /* 商品名 */
-    max-width: 55vw;                    /* cukup panjang di HP */
-    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  /* Sel jadi baris-baris dalam kartu */
+  table.items-table td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+    border: none;
+    font-size: 0.9rem;
   }
 
-  /* Kolom QR diberi lebar tetap agar baris tidak geser-geser */
-  #view-items thead th.th-qr,
-  #view-items tbody td:nth-child(1){
-    width: 120px !important; min-width: 120px !important;
+  /* Kolom pertama (Checkbox) & Kedua (QR) diatur khusus */
+  table.items-table td:nth-child(1) { position: absolute; top: 12px; left: 12px; }
+  table.items-table td:nth-child(2) { display: none; } /* Sembunyikan QR kecil di list HP */
+  
+  /* Nama Barang (Kolom 3) Jadi Judul Besar */
+  table.items-table td:nth-child(3) {
+    display: block; width: 100%; padding-left: 30px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px;
   }
+  table.items-table td:nth-child(3) .fw-semibold { font-size: 1.1rem; color: #0f172a; }
+  table.items-table td:nth-child(3) .small { font-size: 0.8rem; color: #64748b; }
 
-  /* Kolom 置場 & 部門 rapih, tidak terlalu sempit */
-  .table-items .th-dept,
-  .table-items .th-location{
-    min-width: 110px;
-  }
+  /* Gambar (Kolom 4) */
+  table.items-table td:nth-child(4) img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
 
-  /* Grid tombol 操作: 2x2 agar tidak mepet */
-  .table-items .act-grid{
-    grid-template-columns: repeat(2, minmax(0,1fr));
-    gap: 6px;
+  /* Labeling Manual untuk kolom angka (Opsional biar jelas) */
+  table.items-table td:nth-child(5)::before { content: "価格:"; color: #94a3b8; font-size: 0.8rem; }
+  table.items-table td:nth-child(6)::before { content: "在庫:"; color: #94a3b8; font-size: 0.8rem; }
+  table.items-table td:nth-child(7)::before { content: "最小:"; color: #94a3b8; font-size: 0.8rem; }
+
+  /* Tombol Aksi (Kolom Terakhir) */
+  table.items-table td:last-child {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+    margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;
+    justify-content: center;
   }
-  .table-items .act-grid .btn{
-    width: 100%; padding: .35rem .5rem; border-radius: .75rem;
-  }
+  .act-grid { display:contents !important; }
 }
+/* --- MOBILE NAVIGATION STYLES --- */
+@media (max-width: 991px) {
+  /* Hilangkan Sidebar Asli */
+  .sidebar { display: none !important; }
+  
+  /* Beri ruang di bawah agar konten tidak tertutup menu */
+  .main-content { padding-bottom: 90px !important; }
 
-/* === Off-canvas sidebar (sinkron dengan class body.sb-open) === */
-/* (Sudah ada di file, ini fallback agar selalu nyala di HP/tablet) */
-@media (max-width: 991px){
-  .sidebar{
-    position: fixed; left: 0; top: 0; bottom: 0;
-    width: 86%; max-width: 360px; background: #0b1727; color:#c9d2e3;
-    overflow: auto; transform: translateX(-100%);
-    transition: transform .18s ease-out; z-index: 1040;
-  }
-  body.sb-open .sidebar{ transform: none; }
-
-  #sb-backdrop{
-    position: fixed; inset: 0; background: rgba(0,0,0,.35);
-    display: none; z-index: 1030;
-  }
-  body.sb-open #sb-backdrop{ display: block; }
-}
-/* === Fix kejelasan judul & header di smartphone ================== */
-header.appbar{ position: sticky; top: 0; z-index: 1020; } /* terasa app-like */
-
-/* ≤480px: rapikan header dan judul halaman */
-@media (max-width: 480px){
-  /* Header baris atas: biarkan wrap tapi tetap rapi */
-  header.appbar .container-fluid > .d-flex{
-    flex-wrap: wrap;
+  /* Container Menu Bawah */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 70px;
+    background: #ffffff;
+    display: flex;
+    justify-content: space-around;
     align-items: center;
-    gap: 8px;
-  }
-  /* Brand kiri fleksibel, tidak terdorong/terpotong */
-  header.appbar .brand{ flex:1 1 auto; min-width: 0; gap: .5rem; }
-  header.appbar .brand img{ height: 24px; }
-
-  /* Teks siapa yang login (#who): singkat + ellipsis */
-  #who{
-    display:inline-block;
-    max-width: 48vw;                 /* inti: batasi lebarnya */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: .85rem;
-    opacity: .9;
-  }
-  /* Tombol kecil agar tidak “berisik” */
-  header.appbar .btn,
-  header.appbar .btn.btn-outline-secondary{ padding: .35rem .55rem; }
-
-  /* Judul halaman & tombol "メニュー" presisi satu baris */
-  .section-title{                    /* <h5 id="page-title">… */
-    font-size: 1.05rem;
-    line-height: 1.25;
-    margin: 0;
-  }
-  #page-title + #btn-menu{ margin-left: auto; }
-
-  /* Kartu metrik: angka besar tetap muat */
-  .fs-3, .metric-value{ font-size: 1.6rem; line-height: 1.1; }
-
-  /* Konten sedikit dipadatkan biar lega */
-  .content{ padding: 12px; }
-  .card{ border-radius: 14px; }
-}
-
-/* ≤360px: kalau layar sangat sempit, sembunyikan #who untuk fokus */
-@media (max-width: 360px){
-  #who{ display: none; }
-}
-/* === Kecilkan tombol Help / Logout / メニュー di smartphone === */
-@media (max-width: 480px){
-  /* Semua tombol di header sedikit diperkecil */
-  header.appbar .btn{
-    padding: .28rem .5rem;
-    font-size: .82rem;
-    line-height: 1.1;
-    border-radius: 10px;
-  }
-  header.appbar .btn .bi{ font-size: 1rem; } /* icon ikut kecil */
-
-  /* Khusus tombol "メニュー" di samping judul */
-  #btn-menu{
-    padding: .25rem .55rem !important;
-    font-size: .82rem !important;
-    border-radius: 10px;
+    border-top: 1px solid #f1f5f9;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+    z-index: 9999;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Jika punya id untuk help & logout—aktifkan ini */
-  #btn-help, #btn-logout{
-    padding: .25rem .5rem !important;
-    font-size: .8rem !important;
-    min-width: auto;
+  /* Item Menu */
+  .mobile-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 500;
+    width: 20%; /* Bagi rata 5 tombol */
   }
 
-  /* Fallback kalau id berbeda: kecilkan tombol kanan header apa pun */
-  header.appbar .actions .btn{          /* .actions = wrapper tombol kanan jika ada */
-    padding: .25rem .5rem;
-    font-size: .8rem;
+  .mobile-nav .nav-item i {
+    font-size: 22px;
+    margin-bottom: 4px;
+    transition: transform 0.2s;
+  }
+
+  .mobile-nav .nav-item.active {
+    color: #4f46e5; /* Warna Ungu/Biru Utama */
+  }
+  .mobile-nav .nav-item.active i {
+    transform: translateY(-2px);
+  }
+
+  /* Tombol SCAN Melayang (Tengah) */
+  .mobile-nav .nav-scan .scan-circle {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #4f46e5, #3730a3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+    transform: translateY(-25px); /* Naik ke atas */
+    border: 4px solid #fff;
+  }
+  
+  /* Efek pencet tombol scan */
+  .mobile-nav .nav-scan:active .scan-circle {
+    transform: translateY(-20px) scale(0.95);
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
   }
 }
-/* === Rapikan tombol Help / Logout / メニュー di HP ================= */
-@media (max-width: 480px){
-  /* Semua button di header jadi compact & satu baris */
-  header.appbar .btn{
-    font-size: .78rem !important;
-    line-height: 1 !important;
-    padding: .22rem .45rem !important;
-    height: 32px !important;
+/* === TAMBAHAN UNTUK MERAPIKAN TABEL === */
 
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: .3rem !important;
+/* Pastikan kolom aksi (kanan) tidak turun baris */
+.td-actions {
+  white-space: nowrap !important;
+  text-align: right !important;
+  vertical-align: middle !important;
+}
 
-    white-space: nowrap !important;   /* cegah "ヘル\nプ" */
-    word-break: keep-all !important;   /* hindari pecah huruf Jepang */
-    overflow: hidden !important;
-    border-radius: 10px !important;
-  }
-  header.appbar .btn .bi{ font-size: .95rem !important; }
+/* Mengatur grid tombol agar rapi 2 baris jika layar sempit */
+#view-items .act-grid.actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, auto); /* Maksimal 3 tombol per baris */
+  gap: 4px;
+  justify-content: end;
+}
 
-  /* Sedikit rapatkan jarak antartombol di kanan header */
-  header.appbar .btn + .btn{ margin-left: 6px !important; }
+/* Mempercantik Header Tabel agar huruf tidak terlalu nempel */
+.table thead th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background-color: #f1f5f9; /* Abu-abu muda modern */
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+/* === TAMBAHAN FIX TABEL AGAR SIMETRIS === */
 
-  /* Khusus tombol di judul ("メニュー") */
-  #btn-menu{
-    font-size: .8rem !important;
-    padding: .22rem .55rem !important;
-    height: 32px !important;
-    white-space: nowrap !important;
-    word-break: keep-all !important;
-  }
+/* 1. Paksa tabel menggunakan algoritma Fixed Layout */
+.items-table-fixed {
+  table-layout: fixed !important;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* 2. Atur perilaku sel header dan data */
+.items-table-fixed th,
+.items-table-fixed td {
+  overflow: hidden;         /* Potong teks jika kepanjangan */
+  text-overflow: ellipsis;  /* Tambahkan '...' jika terpotong */
+  white-space: nowrap;      /* Larang teks turun baris (kecuali nama) */
+  vertical-align: middle;   /* Teks selalu di tengah vertikal */
+  padding: 8px 6px;         /* Spasi dalam sel */
+}
+
+/* 3. Khusus Kolom Nama (Kolom ke-3) boleh bungkus teks (wrap) */
+.items-table-fixed td:nth-child(3) {
+  white-space: normal;      /* Izinkan teks turun baris */
+  word-break: break-word;   /* Potong kata jika terlalu panjang */
+  line-height: 1.2;         /* Jarak antar baris nama */
+}
+
+/* 4. Khusus Kolom Aksi (Tombol) rata kanan */
+.items-table-fixed td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  overflow: visible; /* Biarkan tombol terlihat jelas */
+}
+/* =======================================================
+   FINAL TABLE ALIGNMENT FIX (V3 - 10 COLUMN SYNC)
+   ======================================================= */
+
+/* 1. RESET UMUM */
+.table thead th {
+  vertical-align: middle;
+  padding: 10px 8px; /* Sedikit dirapatkan agar muat */
+  white-space: nowrap;
+  background-color: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: 0.85rem; /* Font header sedikit lebih kecil */
+}
+
+/* 2. TABEL HISTORY (10 KOLOM) */
+/* Kolom Qty (Jumlah) adalah kolom ke-6 */
+#tbl-history th:nth-child(6), 
+#tbl-history td:nth-child(6) {
+  text-align: right !important;
+  width: 80px;
+}
+
+/* Kolom Fix (Edit) adalah kolom ke-10 (Terakhir) */
+#tbl-history th:last-child, 
+#tbl-history td:last-child {
+  text-align: right !important;
+  width: 70px;
+}
+
+/* Kolom Type (IN/OUT) - Kolom ke-8 */
+#tbl-history th:nth-child(8), 
+#tbl-history td:nth-child(8) {
+  text-align: center !important;
+  width: 60px;
+}
+
+/* Kolom ID & Unit - Kolom 2 & 7 - Tengah */
+#tbl-history th:nth-child(2), #tbl-history td:nth-child(2),
+#tbl-history th:nth-child(7), #tbl-history td:nth-child(7) {
+  text-align: center !important;
+}
+
+/* Pastikan tabel bisa di-scroll horizontal jika layar sempit */
+#view-history .table-responsive {
+  overflow-x: auto;
+}
+  @media (max-width: 991px) {
+  /* Memberi ruang di bawah agar tidak tertutup Menu Bawah HP */
+  .content { padding-bottom: 80px !important; } 
 }
