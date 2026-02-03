@@ -778,3 +778,69 @@ canvas {
   /* Memberi ruang di bawah agar tidak tertutup Menu Bawah HP */
   .content { padding-bottom: 80px !important; } 
 }
+/* =========================================
+   MOBILE HISTORY CARD VIEW (Responsive)
+   ========================================= */
+@media (max-width: 768px) {
+  /* Sembunyikan Header Tabel History di HP */
+  #tbl-history thead { display: none; }
+
+  /* Ubah Baris Tabel Menjadi Kartu */
+  #tbl-history tr.history-row {
+    display: grid;
+    grid-template-columns: 1fr auto; /* Kiri konten, Kanan Qty */
+    grid-template-areas:
+      "type date"
+      "name name"
+      "code qty"
+      "note unit"
+      "user action";
+    gap: 4px 12px;
+    background: #fff;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    position: relative;
+  }
+
+  /* Reset Style TD default */
+  #tbl-history td { 
+    display: block; border: none; padding: 0; white-space: normal; 
+    text-align: left !important; width: auto !important;
+  }
+
+  /* --- Mapping Grid Area --- */
+  
+  /* Badge IN/OUT (Pojok Kiri Atas) */
+  .td-type { grid-area: type; align-self: center; }
+  .td-type .badge { font-size: 0.75rem; }
+
+  /* Tanggal (Pojok Kanan Atas) */
+  .td-date { grid-area: date; text-align: right !important; font-size: 0.75rem; color: #94a3b8; }
+
+  /* Nama Barang (Judul Besar) */
+  .td-name { grid-area: name; font-size: 1rem; color: #1e293b; margin-top: 6px; line-height: 1.4; }
+
+  /* Kode Barang */
+  .td-code { grid-area: code; font-size: 0.8rem; color: #64748b; font-family: monospace; align-self: end; }
+
+  /* User Info */
+  .td-user { grid-area: user; font-size: 0.8rem; color: #64748b; margin-top: 8px; display: flex; align-items: center; }
+
+  /* Note/Catatan */
+  .td-note { grid-area: note; font-size: 0.8rem; font-style: italic; color: #cbd5e1; }
+
+  /* Quantity (Angka Besar di Kanan) */
+  .td-qty { grid-area: qty; text-align: right !important; font-size: 1.4rem !important; align-self: center; color: #0f172a; }
+
+  /* Unit (Di bawah Qty) */
+  .td-unit { grid-area: unit; text-align: right !important; font-size: 0.75rem; color: #94a3b8; transform: translateY(-4px); }
+
+  /* Tombol Edit (Jika Admin) */
+  .td-action { grid-area: action; text-align: right !important; margin-top: 8px; }
+
+  /* Sembunyikan ID User di HP (Redundan) */
+  .d-md-table-cell { display: none !important; }
+}
