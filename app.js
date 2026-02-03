@@ -1722,98 +1722,7 @@ function ensureHistoryHeader() {
   }
 }
 
-// --- 2. FUNCTION BARU: RENDER DATA RIWAYAT ---
-async function renderHistory(range) {
-  try {
-    if (range) { _HISTORY_FILTER = range; }
-    const mode = _HISTORY_FILTER || "all";
 
-    // Ambil data dari API
-    const raw = await api("history", { method: "GET" });
-    const list = pickRows(raw);
-    _HISTORY_CACHE = list.slice();
-
-    // LANGKAH PENTING: Perbaiki Header sebelum isi data
-    ensureHistoryHeader();
-
-    const tbody = document.querySelector("#tbl-history tbody") || document.getElementById("tbl-history");
-    if (!tbody) return;
-
-    const admin = isAdmin();
-    let recent = list.slice(-400).reverse(); // Ambil 400 data terbaru
-    recent = filterHistoryByRange(recent, mode);
-
-    // Jika data kosong
-    if (!recent.length) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-muted py-3 text-center">履歴はありません</td></tr>`;
-      updateHistoryFilterUI(mode);
-      return;
-    }
-
-    // Render Baris (10 Kolom)
-    tbody.innerHTML = recent.map(h => `
-      <tr data-row="${h.row || ""}" data-code="${escapeAttr(h.code || "")}">
-        <td class="text-start">${escapeHtml(h.timestamp || h.date || h.datetime || "")}</td>
-        <td class="text-center">${escapeHtml(h.userId || h.user_id || "")}</td>
-        <td class="text-start">${escapeHtml(h.userName || h.user_name || h.user || "")}</td>
-        <td class="text-start">${escapeHtml(h.code || "")}</td>
-        <td class="text-start">${escapeHtml(h.itemName || h.name || "")}</td>
-        
-        <td class="text-end fw-bold" style="font-family:monospace; font-size:1.1em;">
-          ${fmt(h.qty || h.quantity || 0)}
-        </td>
-        
-        <td class="text-center small text-muted">${escapeHtml(h.unit || "-")}</td>
-        
-        <td class="text-center">
-          <span class="badge ${String(h.type)==='IN'?'bg-primary-subtle text-primary':'bg-danger-subtle text-danger'}">
-            ${escapeHtml(h.type || "")}
-          </span>
-        </td>
-        
-        <td class="text-start">${escapeHtml(h.note || h.remarks || "")}</td>
-        
-        <td class="text-end">
-          ${admin ? `<button class="btn btn-sm btn-outline-primary btn-hist-fix py-0" style="font-size:0.8rem" data-code="${escapeAttr(h.code||"")}">修正</button>` : ""}
-        </td>
-      </tr>
-    `).join("");
-
-    ensureViewAutoMenu("history", "#view-history .items-toolbar .right");
-
-    // Event Listener untuk Tombol Edit (Hanya sekali bind)
-    if (admin && !tbody.__histBound) {
-      tbody.__histBound = true;
-      tbody.addEventListener("click", (ev) => {
-        const btn = ev.target.closest(".btn-hist-fix");
-        if (!btn) return;
-        ev.preventDefault();
-        
-        const tr = btn.closest("tr");
-        const rowNo = Number(tr.getAttribute("data-row") || "0");
-        const tds = tr.children;
-
-        // Ambil data dari kolom yang benar (Index 0 - 9)
-        openHistoryEditModal({
-          row: rowNo,
-          date: tds[0].textContent,     // Col 1
-          userId: tds[1].textContent,   // Col 2
-          userName: tds[2].textContent, // Col 3
-          code: tds[3].textContent,     // Col 4
-          itemName: tds[4].textContent, // Col 5
-          qty: Number(tds[5].textContent.replace(/[,¥]/g, "")) || 0, // Col 6
-          unit: tds[6].textContent,     // Col 7
-          type: tds[7].textContent.trim(), // Col 8
-          note: tds[8].textContent      // Col 9
-        });
-      });
-    }
-    updateHistoryFilterUI(mode);
-  } catch (e) {
-    console.error("renderHistory() error:", e);
-    toast("履歴の読み込みに失敗しました。");
-  }
-}
 // --- Helper: filter history berdasarkan range (all / today / week / month) ---
 function filterHistoryByRange(list, range) {
   const mode = (range || "all");
@@ -1877,125 +1786,126 @@ function updateHistoryFilterUI(mode) {
   }
 }
 
+/* --- PERBAIKAN: renderHistory (Unified Version) --- */
+/* Fitur: Filter Range, Admin Edit, & Mobile Responsive Card Class */
 async function renderHistory(range) {
   try {
-    // simpan pilihan filter global
-    if (range) {
-      _HISTORY_FILTER = range;
-    }
+    if (range) { _HISTORY_FILTER = range; }
     const mode = _HISTORY_FILTER || "all";
 
-    const raw  = await api("history", { method: "GET" });
+    // Ambil data
+    const raw = await api("history", { method: "GET" });
     const list = pickRows(raw);
+    _HISTORY_CACHE = list.slice();
 
-    _HISTORY_CACHE = list.slice();   // cache kalau mau dipakai fitur lain
+    // Pastikan Header Tabel (Desktop) Konsisten
+    ensureHistoryHeader(); 
 
-    // TBODY: prioritaskan #tbl-history tbody; fallback: elemen #tbl-history itu sendiri
-    const tbody =
-      document.querySelector("#tbl-history tbody") ||
-      document.getElementById("tbl-history");
-    if (!tbody) {
-      console.warn("Elemen #tbl-history tidak ditemukan");
-      return;
-    }
+    const tbody = document.querySelector("#tbl-history tbody") || document.getElementById("tbl-history");
+    if (!tbody) return;
 
-    // Ambil role user sekarang
     const admin = isAdmin();
-
-    // Ambil 400 terakhir (baru → atas)
-    let recent = list.slice(-400).reverse();
-
-    // Terapkan filter (all / today / week / month)
+    // Ambil 400 data terbaru, lalu filter berdasarkan tanggal
+    let recent = list.slice(-400).reverse(); 
     recent = filterHistoryByRange(recent, mode);
 
-    // Kosong → pesan ramah
+    // KOSONG?
     if (!recent.length) {
-      const colSpan = admin ? 10 : 9;
-      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-muted py-3 text-center">履歴はありません</td></tr>`;
-      ensureViewAutoMenu("history", "#view-history .items-toolbar .right");
-
-      // Sembunyikan header kolom 修正 untuk non-admin
-      const table = tbody.closest("table") || document.querySelector("#tbl-history");
-      const thLast = table?.querySelector("thead tr th:last-child");
-      if (!admin && thLast) thLast.style.display = "none";
-
+      tbody.innerHTML = `<tr><td colspan="10" class="text-muted py-4 text-center">
+        <div class="d-flex flex-column align-items-center">
+          <i class="bi bi-inbox fs-1 mb-2 text-secondary opacity-25"></i>
+          <div>履歴はありません (Tidak ada riwayat)</div>
+        </div>
+      </td></tr>`;
       updateHistoryFilterUI(mode);
       return;
     }
 
-    // 🔁 Build baris; simpan row nomor sheet di data-row
-    tbody.innerHTML = recent.map(h => `
-      <tr data-row="${h.row || ""}" data-code="${escapeAttr(h.code || "")}">
-        <td>${escapeHtml(h.timestamp || h.date || h.datetime || "")}</td>
-        <td>${escapeHtml(h.userId || h.user_id || "")}</td>
-        <td>${escapeHtml(h.userName || h.user_name || h.user || "")}</td>
-        <td>${escapeHtml(h.code || "")}</td>
-        <td>${escapeHtml(h.itemName || h.name || "")}</td>
-        <td class="text-end">${fmt(h.qty || h.quantity || 0)}</td>
-        <td>${escapeHtml(h.unit || "")}</td>
-        <td>${escapeHtml(h.type || h.kind || "")}</td>
-        <td>${escapeHtml(h.note || h.remarks || "")}</td>
-        ${admin ? `<td class="text-end">
-          <button class="btn btn-sm btn-outline-primary btn-hist-fix" data-code="${escapeAttr(h.code||"")}">修正</button>
-        </td>` : ""}
+    // RENDER BARIS (Mobile Friendly logic via CSS classes)
+    tbody.innerHTML = recent.map(h => {
+      // Logic Badge Warna
+      const isOut = String(h.type||"").toUpperCase() === 'OUT';
+      const badgeClass = isOut ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary';
+      const rowIcon = isOut ? '<i class="bi bi-box-arrow-right"></i>' : '<i class="bi bi-box-arrow-in-down"></i>';
+      
+      return `
+      <tr data-row="${h.row || ""}" data-code="${escapeAttr(h.code || "")}" class="history-row">
+        <td class="td-date" data-label="日時">
+            <span class="fw-medium">${escapeHtml(h.timestamp || h.date || h.datetime || "")}</span>
+        </td>
+        
+        <td class="text-center d-none d-md-table-cell" data-label="ID">${escapeHtml(h.userId || h.user_id || "")}</td>
+        
+        <td class="td-user" data-label="担当者">
+            <i class="bi bi-person-circle me-1 d-md-none text-muted"></i>
+            ${escapeHtml(h.userName || h.user_name || h.user || "")}
+        </td>
+        
+        <td class="font-monospace td-code" data-label="コード">${escapeHtml(h.code || "")}</td>
+        
+        <td class="fw-bold td-name" data-label="品名">${escapeHtml(h.itemName || h.name || "")}</td>
+        
+        <td class="text-end fw-bold td-qty" style="font-size:1.1em;" data-label="数量">
+          ${fmt(h.qty || h.quantity || 0)}
+        </td>
+        
+        <td class="text-center small text-muted td-unit" data-label="単位">${escapeHtml(h.unit || "-")}</td>
+        
+        <td class="text-center td-type" data-label="種別">
+          <span class="badge ${badgeClass} border border-opacity-10">
+            ${rowIcon} ${escapeHtml(h.type || "")}
+          </span>
+        </td>
+        
+        <td class="text-start small text-muted td-note" data-label="備考">${escapeHtml(h.note || h.remarks || "")}</td>
+        
+        <td class="text-end td-action">
+          ${admin ? `<button class="btn btn-sm btn-outline-primary btn-hist-fix py-0" style="font-size:0.8rem" data-code="${escapeAttr(h.code||"")}">修正</button>` : ""}
+        </td>
       </tr>
-    `).join("");
-
-    // Header 「修正」 disembunyikan untuk non-admin
-    const table = tbody.closest("table") || document.querySelector("#tbl-history");
-    const thLast = table?.querySelector("thead tr th:last-child");
-    if (!admin && thLast) thLast.style.display = "none";
-
-    // Jaga-jaga: untuk non-admin, sembunyikan juga seluruh sel terakhir di <tbody>
-    if (!admin) table?.querySelectorAll("tbody tr td:last-child").forEach(td => td.style.display = "none");
+    `}).join("");
 
     ensureViewAutoMenu("history", "#view-history .items-toolbar .right");
 
-    // 🆕 Binding tombol 修正 → buka modal edit (delegasi, ikat sekali saja)
+    // Sembunyikan header kolom terakhir jika bukan admin
+    const table = tbody.closest("table");
+    const thLast = table?.querySelector("thead tr th:last-child");
+    if (!admin && thLast) thLast.style.display = "none";
+    if (!admin) table?.querySelectorAll("tbody tr td:last-child").forEach(td => td.style.display = "none");
+
+    // Re-bind click event untuk tombol edit (Admin)
     if (admin && !tbody.__histBound) {
       tbody.__histBound = true;
       tbody.addEventListener("click", (ev) => {
         const btn = ev.target.closest(".btn-hist-fix");
         if (!btn) return;
         ev.preventDefault();
-
+        
         const tr = btn.closest("tr");
-        if (!tr) return;
-
         const rowNo = Number(tr.getAttribute("data-row") || "0");
-        if (!rowNo) return;
+        
+        // Ambil data dari textContent (hati-hati urutan kolom)
+        const getTxt = (idx) => (tr.children[idx]?.innerText || "").trim();
 
-        const tds = tr.children;
-        const dateText  = (tds[0]?.textContent || "").trim();
-        const userId    = (tds[1]?.textContent || "").trim();
-        const userName  = (tds[2]?.textContent || "").trim();
-        const code      = (tds[3]?.textContent || "").trim();
-        const itemName  = (tds[4]?.textContent || "").trim();
-        const qtyText   = (tds[5]?.textContent || "").replace(/[,¥]/g, "").trim();
-        const unitText  = (tds[6]?.textContent || "").trim();
-        const typeText  = (tds[7]?.textContent || "").trim();
-        const noteText  = (tds[8]?.textContent || "").trim();
-
-        const currentQty   = Number(qtyText || 0) || 0;
-        const currentType  = (String(typeText).toUpperCase() === "OUT") ? "OUT" : "IN";
-        const currentUnit  = unitText || "pcs";
-
+        // Mapping ulang berdasarkan urutan TD di atas:
+        // 0:Date, 1:ID, 2:Name, 3:Code, 4:ItemName, 5:Qty, 6:Unit, 7:Type, 8:Note
         openHistoryEditModal({
-          row : rowNo,
-          date: dateText,
-          userId,
-          userName,
-          code,
-          itemName,
-          qty : currentQty,
-          unit: currentUnit,
-          type: currentType,
-          note: noteText
+          row: rowNo,
+          date: getTxt(0),
+          userId: getTxt(1),
+          userName: getTxt(2),
+          code: getTxt(3),
+          itemName: getTxt(4),
+          qty: Number(getTxt(5).replace(/[,¥]/g, "")) || 0,
+          unit: getTxt(6),
+          type: getTxt(7).includes("OUT") ? "OUT" : "IN",
+          note: getTxt(8)
         });
       });
     }
 
     updateHistoryFilterUI(mode);
+
   } catch (e) {
     console.error("renderHistory() error:", e);
     toast("履歴の読み込みに失敗しました。");
