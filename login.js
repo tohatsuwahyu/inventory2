@@ -1,234 +1,474 @@
 /* =========================================================
- * login.js — Login USER+PIN & QR (fast scan, mobile-safe)
+ * login.js — Login USER+PIN & QR (Fixed & Unified Version)
  * =======================================================*/
-(function(){
+(function() {
   "use strict";
-  const qs = (s, el=document)=>el.querySelector(s);
-  const isPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
 
-  /* CSS anti overlay/tap miss */
-  (function injectTapCss(){
+  const qs = (s, el = document) => el.querySelector(s);
+
+  /* =========================================================
+   * 1b. Helper: Toast + Loader html5-qrcode (Compat Fix)
+   *    - FIX: sebelumnya startQR() memanggil ensureHtml5() tapi fungsinya belum ada
+   *    - FIX: sebelumnya toast() dipanggil tapi belum didefinisikan di login page
+   * =======================================================*/
+  function toast(message, variant = "danger") {
+    const msg = String(message ?? "");
+    try {
+      // Jika bootstrap Toast tersedia, pakai toast yang rapi
+      const hasBsToast = !!(window.bootstrap && window.bootstrap.Toast);
+      const id = "login-toast-container";
+      let container = document.getElementById(id);
+      if (!container) {
+        container = document.createElement("div");
+        container.id = id;
+        container.className = "toast-container position-fixed bottom-0 end-0 p-3";
+        container.style.zIndex = 3000;
+        document.body.appendChild(container);
+      }
+
+      const v = (variant || "danger").toLowerCase();
+      const bsVar = ["primary","secondary","success","danger","warning","info","light","dark"].includes(v) ? v : "danger";
+      const el = document.createElement("div");
+      el.className = `toast align-items-center text-bg-${bsVar} border-0`;
+      el.setAttribute("role", "alert");
+      el.setAttribute("aria-live", "assertive");
+      el.setAttribute("aria-atomic", "true");
+      el.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${msg.replace(/[&<>"']/g, (m)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>`;
+      container.appendChild(el);
+
+      if (hasBsToast) {
+        const t = new bootstrap.Toast(el, { delay: 3500 });
+        el.addEventListener("hidden.bs.toast", () => el.remove(), { once: true });
+        t.show();
+      } else {
+        // Fallback tanpa bootstrap
+        el.classList.add("show");
+        setTimeout(() => { try { el.remove(); } catch(e) {} }, 3800);
+      }
+    } catch (e) {
+      // Fallback paling aman
+      alert(msg);
+    }
+  }
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      try {
+        if ([...document.scripts].some(s => s.src === src || s.src.endsWith(src))) return resolve();
+        const s = document.createElement("script");
+        s.src = src; s.async = true; s.crossOrigin = "anonymous";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("Gagal memuat script: " + src));
+        document.head.appendChild(s);
+      } catch (e) { reject(e); }
+    });
+  }
+
+  async function ensureHtml5() {
+    // Jika sudah ada, tidak perlu load lagi
+    if (window.Html5Qrcode) return;
+    const cdns = [
+      "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js",
+      "https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"
+    ];
+    for (const url of cdns) {
+      try {
+        await loadScriptOnce(url);
+        if (window.Html5Qrcode) return;
+      } catch (e) {
+        // lanjut coba CDN lain
+      }
+    }
+    throw new Error("html5-qrcode library tidak tersedia (script gagal dimuat)");
+  }
+
+  async function pickBackCameraId() {
+    // Fallback untuk device yang tidak cocok dengan facingMode: 'environment'
+    try {
+      if (!window.Html5Qrcode || !window.Html5Qrcode.getCameras) return null;
+      const cams = await Html5Qrcode.getCameras();
+      if (!Array.isArray(cams) || !cams.length) return null;
+
+      // Prefer label 'back/rear' kalau label tersedia
+      const back = cams.find(c => /back|rear|environment|背面|背|kamera belakang/i.test(String(c.label || "")));
+      return (back || cams[cams.length - 1]).id;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function prettyCameraError(err) {
+    const name = String(err?.name || "");
+    const msg  = String(err?.message || err || "");
+    // Pesan yang lebih ramah untuk pemula
+    if (/NotAllowedError|PermissionDeniedError/i.test(name + msg)) {
+      return "Izin kamera ditolak. Buka pengaturan browser → Site settings → Camera → Allow untuk tshinventory.pages.dev.";
+    }
+    if (/NotFoundError|DevicesNotFoundError/i.test(name + msg)) {
+      return "Kamera tidak ditemukan. Pastikan device punya kamera dan tidak sedang dipakai aplikasi lain.";
+    }
+    if (/NotReadableError|TrackStartError/i.test(name + msg)) {
+      return "Kamera tidak bisa dibuka (mungkin sedang dipakai aplikasi lain). Tutup aplikasi kamera/WhatsApp/Line, lalu coba lagi.";
+    }
+    if (/OverconstrainedError|ConstraintNotSatisfiedError/i.test(name + msg)) {
+      return "Resolusi/constraint kamera tidak cocok di device ini. Sistem akan mencoba kamera lain. Jika masih gagal, gunakan browser Chrome/Safari terbaru.";
+    }
+    return "Gagal membuka kamera. Refresh halaman atau cek izin browser.";
+  }
+
+
+  // --- 1. UI HELPERS & CSS INJECTION ---
+  (function injectTapCss() {
+    if (document.getElementById('login-css-patch')) return;
     const css = `
-      #qr-area{ position:relative; z-index:1; }
-      #global-loading{ pointer-events:none !important; }
-      button, a, input, label{ touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-      .html5-qrcode-element{ display:none !important; }
+      #qr-area { position: relative; z-index: 1; border: 2px solid #2563eb; background: #000; }
+      #qr-area::before {
+        content: "QRを枠内に収めてください";
+        position: absolute; top: 10px; left: 0; right: 0;
+        text-align: center; color: #fff; font-size: 12px; z-index: 10;
+        background: rgba(0,0,0,0.5);
+      }
+      #global-loading { pointer-events: none !important; position: fixed; inset: 0; background: rgba(255,255,255,.7); display: flex; align-items: center; justifyContent: center; z-index: 2000; }
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .html5-qrcode-element { display: none !important; }
+      video { object-fit: cover !important; }
     `.trim();
-    const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
+    const style = document.createElement('style');
+    style.id = 'login-css-patch';
+    style.textContent = css;
+    document.head.appendChild(style);
   })();
 
-  // ==== Lightweight loading overlay khusus halaman login ====
-  function ensureLoading(){
+  function setLoading(show, text) {
     let el = document.getElementById('global-loading');
-    if(!el){
+    if (!el && show) {
       el = document.createElement('div');
       el.id = 'global-loading';
-      el.className = 'd-none';
-      el.innerHTML = `
-        <div class="box" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 18px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 26px rgba(15,23,42,.06)">
-          <div class="spinner" style="width:28px;height:28px;border-radius:50%;border:3px solid #cbd5e1;border-top-color:#2563eb;animation:spin 1s linear infinite"></div>
-          <div id="loading-text" class="text" style="font-size:.95rem;color:#475569">読み込み中…</div>
-        </div>`;
-      Object.assign(el.style, {position:'fixed', inset:'0', background:'rgba(255,255,255,.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:'2000'});
-      const kf = document.createElement('style'); kf.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
-      document.head.appendChild(kf);
+      el.innerHTML = `<div style="background:#fff;padding:20px;border-radius:12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+        <div style="width:30px;height:30px;border:3px solid #ddd;border-top-color:#2563eb;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px"></div>
+        <div id="loading-text">${text || '読み込み中…'}</div></div>`;
       document.body.appendChild(el);
     }
-    return el;
-  }
-  function setLoading(show, text){
-    const el = ensureLoading();
-    const boxText = document.getElementById('loading-text');
-    if(show){
-      el.classList.remove('d-none');
-      if(boxText) boxText.textContent = text || '読み込み中…';
-    }else{
-      el.classList.add('d-none');
-    }
+    if (el) el.classList.toggle('d-none', !show);
+    if (el && show) document.getElementById('loading-text').textContent = text;
   }
 
-  /* API */
-  async function api(action, {method='GET', body}={}){
-    if(!window.CONFIG || !CONFIG.BASE_URL) throw new Error('config.js belum ter-load / BASE_URL kosong');
-    const apikey = encodeURIComponent(CONFIG.API_KEY||'');
+  // --- 2. API & LOGIN LOGIC ---
+  async function api(action, { method = 'GET', body } = {}) {
+    const apikey = encodeURIComponent(window.CONFIG?.API_KEY || '');
     const url = `${CONFIG.BASE_URL}?action=${encodeURIComponent(action)}&apikey=${apikey}&_=${Date.now()}`;
-    if(method==='GET'){
-      const r = await fetch(url,{mode:'cors',cache:'no-cache'}); if(!r.ok) throw new Error(`[${r.status}] ${r.statusText}`);
-      return r.json();
+    const opts = {
+      method: method,
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: method === 'POST' ? JSON.stringify({ ...body, apikey: CONFIG.API_KEY }) : undefined
+    };
+    const r = await fetch(url, opts);
+    return r.json();
+  }
+
+  async function handleLoginSuccess(user) {
+    api('log', { method: 'POST', body: { userId: user.id, type: 'LOGIN', note: 'QR/Manual Success' } }).catch(()=>{});
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    setLoading(true, 'ダッシュボードへ移動中…');
+    window.location.replace('dashboard.html');
+  }
+
+  // --- 3. SCANNER LOGIC ---
+  // Catatan:
+  // - Beberapa device lebih stabil pakai BarcodeDetector (Chrome) → kita pakai dulu jika ada.
+  // - Jika tidak ada, fallback ke html5-qrcode (dengan useBarCodeDetectorIfSupported).
+  let scanner = null; // bisa Html5Qrcode instance ATAU handle {stop, clear}
+  const $area = qs('#qr-area');
+
+  let _lastWarnAt = 0;
+
+  function setQrDebug(message) {
+    try {
+      const id = 'qr-debug';
+      let el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = id;
+        el.style.fontSize = '12px';
+        el.style.marginTop = '8px';
+        el.style.color = '#475569';
+        el.style.wordBreak = 'break-word';
+        ($area.parentNode || document.body).insertBefore(el, $area.nextSibling);
+      }
+      el.textContent = message ? String(message) : '';
+    } catch (e) {}
+  }
+
+  function parseQR(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+
+    // Format standar login (yang juga dipakai di app.js untuk QR user)
+    // USER|USER001
+    if (/^USER\|/i.test(raw)) {
+      const id = (raw.split('|')[1] || '').trim();
+      return id ? { kind: 'byId', id } : null;
     }
-    const r = await fetch(url,{
-      method:'POST', mode:'cors',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ ...(body||{}), apikey: CONFIG.API_KEY })
-    });
-    if(!r.ok) throw new Error(`[${r.status}] ${r.statusText}`); return r.json();
-  }
 
-  function toast(m){ alert(m); }
-  function loadScriptOnce(src){
-    return new Promise((resolve,reject)=>{
-      if ([...document.scripts].some(s=>s.src===src || s.src.endsWith(src))) return resolve();
-      const s=document.createElement('script'); s.src=src; s.async=true; s.crossOrigin='anonymous';
-      s.onload=()=>resolve(); s.onerror=()=>reject(new Error('gagal memuat: '+src));
-      document.head.appendChild(s);
-    });
-  }
-  async function ensureHtml5(){
-    if (window.Html5Qrcode) return;
-    const locals=['./vendor/html5-qrcode.min.js','./html5-qrcode.min.js'];
-    for(const p of locals){ try{ await loadScriptOnce(p); if(window.Html5Qrcode) return; }catch{} }
-    const cdns=[
-      'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js',
-      'https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/minified/html5-qrcode.min.js'
-    ];
-    for(const u of cdns){ try{ await loadScriptOnce(u); if(window.Html5Qrcode) return; }catch{} }
-    throw new Error('html5-qrcode tidak tersedia');
-  }
+    // LOGIN|USER001|1234
+    if (/^LOGIN\|/i.test(raw)) {
+      const parts = raw.split('|');
+      const id  = (parts[1] || '').trim();
+      const pin = (parts[2] || '').trim();
+      return (id && pin) ? { kind: 'withPin', id, pin } : null;
+    }
 
-  /* Tap binding aman */
-  function bindTap(el, handler){
-    if(!el) return;
-    let locked=false;
-    const wrap=(e)=>{ if(locked){ e.preventDefault(); return; } locked=true; setTimeout(()=>locked=false,350); e.preventDefault(); handler(e); };
-    el.addEventListener('click', wrap, false);
-    el.addEventListener('touchend', wrap, { passive:false });
-  }
+    // Jika QR hanya berisi USER001 saja
+    if (/^[A-Z0-9_-]{3,}$/i.test(raw) && !raw.includes('://')) {
+      return { kind: 'byId', id: raw };
+    }
 
-  /* Manual login */
-  const $id=qs('#login-user'), $pin=qs('#login-pin'), $btn=qs('#btn-login');
-  $btn?.setAttribute('type','button');
-  bindTap($btn, async ()=>{
-    const id=($id?.value||'').trim(), pin=($pin?.value||'').trim();
-    if(!id) return toast('ユーザーIDを入力してください。');
-    try{
-      setLoading(true, 'ログイン中…');
-      const r=await api('login',{method:'POST',body:{id,pass:pin}});
-      if(!r || r.ok===false){ setLoading(false); return toast(r?.error||'ログインに失敗しました。'); }
-      localStorage.setItem('currentUser', JSON.stringify(r.user));
-      setLoading(true, 'ダッシュボードへ移動中…');
-      location.href='dashboard.html';
-    }catch(err){ setLoading(false); toast('ログイン失敗: '+(err?.message||err)); }
-  });
-  [$id,$pin].forEach(el=>el?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $btn?.click(); }}));
+    // URL berisi ?id=USER001 atau ?user=USER001
+    try {
+      const u = new URL(raw);
+      const id = (u.searchParams.get('id') || u.searchParams.get('user') || u.searchParams.get('uid') || '').trim();
+      const pin = (u.searchParams.get('pin') || u.searchParams.get('pass') || '').trim();
+      if (id && pin) return { kind: 'withPin', id, pin };
+      if (id) return { kind: 'byId', id };
+    } catch (e) {}
 
-  /* QR login */
-  let scanner=null, nativeRunner=null, stream=null;
-  const $btnQR   = qs('#btn-qr');
-  const $btnQR2  = qs('#btn-qr-alt');
-  const $area  = (()=>{
-    let a = qs('#qr-area');
-    if(!a){ a=document.createElement('div'); a.id='qr-area'; document.body.appendChild(a); }
-    Object.assign(a.style,{
-      display:'none', width:'100%', maxWidth:'420px', aspectRatio:'4 / 3',
-      margin:'12px auto', borderRadius:'12px', overflow:'hidden', background:'#0b0b0b10'
-    });
-    return a;
-  })();
+    // JSON {"id":"USER001","pin":"1234"}
+    try {
+      const o = JSON.parse(raw);
+      const id  = String(o.id || o.userId || o.user || '').trim();
+      const pin = String(o.pin || o.pass || '').trim();
+      if (id && pin) return { kind: 'withPin', id, pin };
+      if (id) return { kind: 'byId', id };
+    } catch (e) {}
 
-  function parseQR(text){
-    if(/^USER\|/i.test(text))  return {kind:'byId',   id:(text.split('|')[1]||'')};
-    if(/^LOGIN\|/i.test(text)){ const [,id,pin]=text.split('|'); return {kind:'withPin', id:(id||''), pin:(pin||'')}; }
-    try{
-      const o=JSON.parse(text);
-      if((o.type==='USER'||o.t==='USER') && o.id)   return {kind:'byId',   id:String(o.id)};
-      if((o.type==='LOGIN'||o.t==='LOGIN') && o.id) return {kind:'withPin', id:String(o.id), pin:String(o.pin||'')};
-    }catch(_){}
     return null;
   }
 
-  async function onScan(txt){
-    const p = parseQR(String(txt||'')); if(!p) return;
-    await stopQR();
-    try{
-      setLoading(true, 'QRでログイン中…');
-      const r = (p.kind==='byId')
-        ? await api('loginById',{method:'POST',body:{id:p.id}})
-        : await api('login',{method:'POST',body:{id:p.id,pass:p.pin}});
-      if(!r || r.ok===false){ setLoading(false); return toast(r?.error||'ログインに失敗しました。'); }
-      localStorage.setItem('currentUser', JSON.stringify(r.user));
-      setLoading(true, 'ダッシュボードへ移動中…');
-      location.href='dashboard.html';
-    }catch(err){ setLoading(false); toast('QRログイン失敗: '+(err?.message||err)); }
+  async function stopQR() {
+    try {
+      if (scanner) {
+        if (typeof scanner.stop === 'function') await scanner.stop();
+        if (typeof scanner.clear === 'function') await scanner.clear();
+      }
+    } catch (e) {}
+    scanner = null;
+    $area.style.display = 'none';
+    setQrDebug('');
   }
 
-  async function startNative(){
-    if(!('BarcodeDetector' in window)) return false;
-    try{
-      $area.style.display='block'; $area.style.pointerEvents='auto';
-      const video=document.createElement('video'); Object.assign(video,{ playsInline:true, autoplay:true, muted:true });
-      Object.assign(video.style,{ width:'100%', height:'100%', objectFit:'cover' });
-      $area.innerHTML=''; $area.appendChild(video);
-
-      const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
-      const back = devs.find(d=>/back|rear|environment/i.test(d.label)) || devs.at(-1);
-
-      stream = await navigator.mediaDevices.getUserMedia({
-        video:{ deviceId: back ? { exact: back.deviceId } : { ideal:'environment' },
-          width:{ ideal:1280 }, height:{ ideal:720 }, focusMode:'continuous', exposureMode:'continuous' },
-        audio:false
-      });
-      video.srcObject=stream;
-
-      // beri waktu autofocus/exposure lock
-      await new Promise(r=>setTimeout(r, 500));
-
-      const det = new BarcodeDetector({ formats:['qr_code'] });
-      let raf=0, stopped=false;
-      const loop = async ()=>{
-        if(stopped) return;
-        try{
-          const codes = await det.detect(video);
-          if(codes?.length){ const txt = codes[0].rawValue || ''; if(txt){ stop(); await onScan(txt); return; } }
-        }catch(_){}
-        raf = requestAnimationFrame(loop);
-      };
-      const stop = ()=>{ stopped=true; cancelAnimationFrame(raf); try{stream?.getTracks()?.forEach(t=>t.stop());}catch{} stream=null; $area.innerHTML=''; };
-      loop(); nativeRunner = { stop, clear:()=>{ try{$area.innerHTML='';}catch{} } };
-      return true;
-    }catch(_){ try{ nativeRunner?.stop?.(); nativeRunner?.clear?.(); }catch{} return false; }
-  }
-
-  async function startQR(){
-    if(await startNative()) return;
-    try{
-      await ensureHtml5(); $area.style.display='block'; $area.style.pointerEvents='auto';
-      const cfg = {
-        fps: 30,
-        qrbox:{ width: isPhone? 220 : 240, height: isPhone? 220 : 240 },
-        aspectRatio: 1.33,
-        rememberLastUsedCamera:true,
-        disableFlip:true,
-        videoConstraints:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 }, focusMode:'continuous', exposureMode:'continuous' }
-      };
-      scanner = new Html5Qrcode('qr-area', { useBarCodeDetectorIfSupported:true });
-      async function startWith(source){
-        await scanner.start(source, cfg, onScan);
-        // jeda kecil untuk autofocus lalu set zoom/constraints
-        await new Promise(r=>setTimeout(r, 600));
-        try{
-          await scanner.applyVideoConstraints({ advanced:[{focusMode:'continuous'},{exposureMode:'continuous'},{zoom:3}] }).catch(()=>{});
-        }catch(_){}
-        return scanner;
-      }
-      try{ await startWith({ facingMode:'environment' }); }
-      catch(_){
-        const cams = await Html5Qrcode.getCameras();
-        const back = cams.find(c=>/back|rear|environment/i.test(c.label)) || cams.at(-1);
-        await startWith({ deviceId:{ exact: back.id } });
-      }
-    }catch(err){
-      toast('QRログインを開始できませんでした: '+(err?.message||err));
-      try{ await stopQR(); }catch{}
+  async function tryLoginByIdOrFill(id) {
+    // 1) coba loginById (jika backend mendukung)
+    try {
+      const r = await api('loginById', { method: 'POST', body: { id } });
+      if (r?.ok) return await handleLoginSuccess(r.user);
+      // 2) fallback: isi saja field ID supaya user bisa login manual
+      const inp = qs('#login-user');
+      if (inp) inp.value = id;
+      setLoading(false);
+      toast(r?.error || 'QR terbaca. ID sudah terisi, silakan tekan tombol Login.', 'warning');
+    } catch (e) {
+      const inp = qs('#login-user');
+      if (inp) inp.value = id;
+      setLoading(false);
+      toast('QR terbaca. ID sudah terisi, silakan tekan tombol Login.', 'warning');
     }
   }
-  async function stopQR(){
-    try{ await scanner?.stop?.(); scanner?.clear?.(); }catch{}
-    try{ nativeRunner?.stop?.(); nativeRunner?.clear?.(); }catch{}
-    scanner=null; nativeRunner=null; if($area){ $area.style.display='none'; $area.style.pointerEvents='none'; }
+
+  async function onScan(decodedText) {
+    const raw = String(decodedText || '').trim();
+    setQrDebug(raw ? `Terbaca: ${raw}` : '');
+
+    const p = parseQR(raw);
+    if (!p) {
+      const now = Date.now();
+      if (now - _lastWarnAt > 1500) {
+        _lastWarnAt = now;
+        toast('QR terbaca, tapi format belum dikenali. Contoh: USER|USER001 atau LOGIN|USER001|1234', 'warning');
+      }
+      return;
+    }
+
+    if (navigator.vibrate) navigator.vibrate(40);
+
+    // Stop kamera dulu supaya tidak scan berkali-kali
+    await stopQR();
+
+    try {
+      setLoading(true, 'QRログイン中…');
+      if (p.kind === 'withPin') {
+        const r = await api('login', { method: 'POST', body: { id: p.id, pass: p.pin } });
+        if (!r?.ok) { setLoading(false); return toast(r?.error || 'Login gagal.', 'danger'); }
+        return await handleLoginSuccess(r.user);
+      }
+      return await tryLoginByIdOrFill(p.id);
+    } catch (e) {
+      setLoading(false);
+      toast('Error: ' + (e?.message || e), 'danger');
+    }
   }
 
-  bindTap($btnQR,  ()=>{ (scanner || nativeRunner) ? stopQR() : startQR(); });
-  bindTap($btnQR2, ()=>{ (scanner || nativeRunner) ? stopQR() : startQR(); });
+  function cameraErrorMessage(err) {
+    const name = String(err?.name || '');
+    const msg  = String(err?.message || err || '');
+    if (/NotAllowedError|PermissionDeniedError/i.test(name + msg)) {
+      return 'Izin kamera ditolak. Buka Site settings → Camera → Allow untuk domain ini.';
+    }
+    if (/NotFoundError|DevicesNotFoundError/i.test(name + msg)) {
+      return 'Kamera tidak ditemukan.';
+    }
+    if (/NotReadableError|TrackStartError/i.test(name + msg)) {
+      return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi kamera/WhatsApp lalu coba lagi.';
+    }
+    if (/OverconstrainedError|ConstraintNotSatisfiedError/i.test(name + msg)) {
+      return 'Constraint kamera tidak cocok. Sistem akan coba mode lain.';
+    }
+    return 'Gagal membuka kamera. Cek izin kamera & refresh.';
+  }
+
+  async function startQR() {
+    try {
+      $area.style.display = 'block';
+      setQrDebug('Menunggu QR...');
+
+      // ===============================
+      // A) Native BarcodeDetector (Chrome) — paling jago baca QR “styling”
+      // ===============================
+      if ('BarcodeDetector' in window && navigator.mediaDevices?.getUserMedia) {
+        try {
+          const video = Object.assign(document.createElement('video'), { playsInline: true, autoplay: true, muted: true });
+          Object.assign(video.style, { width: '100%', height: '100%', objectFit: 'cover' });
+          $area.innerHTML = '';
+          $area.appendChild(video);
+
+          const constraints = {
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          video.srcObject = stream;
+
+          // tunggu kamera stabil
+          await new Promise(r => setTimeout(r, 500));
+
+          const detector = new BarcodeDetector({ formats: ['qr_code'] });
+          let raf = 0, stopped = false;
+
+          const stop = () => {
+            stopped = true;
+            cancelAnimationFrame(raf);
+            try { stream.getTracks().forEach(t => t.stop()); } catch(e) {}
+            try { $area.innerHTML = ''; } catch(e) {}
+          };
+
+          const loop = async () => {
+            if (stopped) return;
+            try {
+              const codes = await detector.detect(video);
+              if (codes?.length) {
+                const txt = codes[0].rawValue || '';
+                if (txt) { stop(); onScan(txt); return; }
+              }
+            } catch(e) {}
+            raf = requestAnimationFrame(loop);
+          };
+
+          loop();
+          scanner = { stop: async () => stop(), clear: () => { try { $area.innerHTML = ''; } catch(e) {} } };
+          return scanner;
+        } catch (e) {
+          console.warn('BarcodeDetector gagal → fallback html5-qrcode', e);
+        }
+      }
+
+      // ===============================
+      // B) html5-qrcode fallback
+      // ===============================
+      await ensureHtml5();
+
+      const formatsOpt = (window.Html5QrcodeSupportedFormats && Html5QrcodeSupportedFormats.QR_CODE)
+        ? { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE] }
+        : {};
+
+      const cfg = {
+        fps: 30,
+        qrbox: { width: 260, height: 260 },
+        aspectRatio: 1.33,
+        rememberLastUsedCamera: true,
+        disableFlip: true,
+        videoConstraints: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        ...formatsOpt
+      };
+
+      const h5 = new Html5Qrcode('qr-area', { useBarCodeDetectorIfSupported: true });
+
+      async function startWith(source) {
+        await h5.start(source, cfg, (txt) => onScan(txt), () => {});
+        // coba autofocus setelah start (jika didukung)
+        try {
+          await new Promise(r => setTimeout(r, 600));
+          await h5.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }] }).catch(()=>{});
+        } catch(e) {}
+        return h5;
+      }
+
+      try {
+        scanner = await startWith({ facingMode: 'environment' });
+        return scanner;
+      } catch (e1) {
+        const camId = await pickBackCameraId();
+        if (camId) {
+          scanner = await startWith({ deviceId: { exact: camId } });
+          return scanner;
+        }
+        throw e1;
+      }
+
+    } catch (err) {
+      console.error(err);
+      toast(cameraErrorMessage(err), 'danger');
+      await stopQR();
+    }
+  }
+
+
+  // --- 4. BINDING & EVENTS ---
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnLogin = qs('#btn-login');
+    const btnQR = qs('#btn-qr');
+    const btnQR2 = qs('#btn-qr-alt');
+
+    if (btnLogin) {
+      btnLogin.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const id = qs('#login-user').value.trim();
+        const pin = qs('#login-pin').value.trim();
+        if (!id) return alert('IDを入力してください');
+        
+        setLoading(true, 'ログイン中…');
+        try {
+          const r = await api('login', { method: 'POST', body: { id, pass: pin } });
+          if (r.ok) handleLoginSuccess(r.user);
+          else { setLoading(false); alert(r.error); }
+        } catch(e) { setLoading(false); alert("Error"); }
+      });
+    }
+
+    if (btnQR) btnQR.addEventListener('click', (e) => { e.preventDefault(); startQR(); });
+    if (btnQR2) btnQR2.addEventListener('click', (e) => { e.preventDefault(); startQR(); });
+  });
 
 })();
